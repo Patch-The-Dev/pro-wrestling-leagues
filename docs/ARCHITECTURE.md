@@ -35,13 +35,13 @@ The validation order is intentional. A strike commits stamina and cooldown when 
 
 ## Match lifecycle
 
-`MatchService` is a transport facade over `Application/MatchCoordinator`. `MatchSession` owns lifecycle state while the coordinator owns queueing, arena placement, rewards, disconnect handling, and delayed cleanup. Matches do not enter `Active` unless the configured arena provides enough spawn points and both original characters remain ready through the entrance countdown. An aborted countdown releases the arena and requeues eligible players.
+`MatchService` is a transport facade over `Application/MatchCoordinator`. `MatchSession` owns lifecycle state while the coordinator owns queueing, arena placement, rewards, disconnect handling, and delayed cleanup. Matches do not enter `Active` unless the configured arena provides enough spawn points and both original characters remain ready through the entrance countdown. An aborted countdown releases the arena and requeues eligible players. Arena release and arena registration both retry waiting players.
 
 The countdown is calculated from entrance lead-in, entrant spacing, presentation duration, and a short buffer. Entrance cues carry the match ID; the client discards stale cues and restores camera, lighting, music, and pyro on match state changes.
 
 ## Persistence
 
-`PlayerRepository` is the only module that knows ProfileStore. Services receive typed player data through `DataService`. Migrations run before reconciliation so legacy Studio-era profiles can be normalized into the current schema.
+`PlayerRepository` is the only module that knows ProfileStore. Services receive typed player data through `DataService`. Migrations run before reconciliation so legacy Studio-era profiles can be normalized into the current schema. `PlayerDeparture` calls match settlement before releasing a departing player's profile. Both participants wait on the same settlement if they leave while the shared reward claim is in progress. Failed reward updates are logged; the two profile writes are not one atomic transaction. Profile sanitization keeps an equipped move only when its unlock is owned; otherwise the slot returns to a default move.
 
 Studio uses ProfileStore mock storage by default. This keeps local testing away from live player data.
 

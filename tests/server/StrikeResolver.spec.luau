@@ -1,6 +1,8 @@
 --!strict
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
+local Promise = require(ReplicatedStorage.Packages.Promise)
 local StrikeResolver = require(ServerScriptService.Server.Application.StrikeResolver)
 
 return function()
@@ -15,6 +17,8 @@ return function()
 			local resolvedCount = 0
 			local targetInRange = true
 			local matchActive = true
+			local resolveImpact: (() -> ())? = nil
+			local impactDelay = 0
 			local attackerCombatant = {
 				GetState = function()
 					return state
@@ -70,6 +74,15 @@ return function()
 				EmitToParticipants = function()
 					resolvedCount += 1
 				end,
+				Delay = function(seconds)
+					impactDelay = seconds
+					return {
+						andThen = function(_, callback)
+							resolveImpact = callback
+							return Promise.resolve()
+						end,
+					}
+				end,
 			})
 			return resolver,
 				attackerCombatant,
@@ -81,17 +94,25 @@ return function()
 				end,
 				function(active)
 					matchActive = active
+				end,
+				function()
+					assert(resolveImpact ~= nil, "An impact callback was not scheduled")
+					resolveImpact()
+				end,
+				function()
+					return impactDelay
 				end
 		end
 
 		it("applies damage after the server-owned impact delay", function()
-			local resolver, combatant, counts = setup()
+			local resolver, combatant, counts, _, _, resolveImpact, getImpactDelay = setup()
 			expect(resolver:Request(attacker, "Attack", combatant)).to.equal(true)
 			local damage, started, resolved = counts()
 			expect(damage).to.equal(0)
 			expect(started).to.equal(1)
 			expect(resolved).to.equal(0)
-			task.wait(0.6)
+			expect(getImpactDelay() > 0).to.equal(true)
+			resolveImpact()
 			damage, _, resolved = counts()
 			expect(damage).to.equal(1)
 			expect(resolved).to.equal(1)
@@ -99,10 +120,10 @@ return function()
 		end)
 
 		it("misses when the target leaves range before impact", function()
-			local resolver, combatant, counts, setInRange = setup()
+			local resolver, combatant, counts, setInRange, _, resolveImpact = setup()
 			expect(resolver:Request(attacker, "Attack", combatant)).to.equal(true)
 			setInRange(false)
-			task.wait(0.6)
+			resolveImpact()
 			local damage, _, resolved = counts()
 			expect(damage).to.equal(0)
 			expect(resolved).to.equal(1)
@@ -110,10 +131,10 @@ return function()
 		end)
 
 		it("cancels a pending impact when the match closes", function()
-			local resolver, combatant, counts, _, setMatchActive = setup()
+			local resolver, combatant, counts, _, setMatchActive, resolveImpact = setup()
 			expect(resolver:Request(attacker, "Attack", combatant)).to.equal(true)
 			setMatchActive(false)
-			task.wait(0.6)
+			resolveImpact()
 			local damage, _, resolved = counts()
 			expect(damage).to.equal(0)
 			expect(resolved).to.equal(0)

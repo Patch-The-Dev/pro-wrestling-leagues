@@ -84,6 +84,9 @@ function MatchService:KnitStart()
 	})
 	self._coordinator = coordinator
 	self._trove:Add(coordinator)
+	dataService:SetBeforeRelease(function(player)
+		coordinator:HandlePlayerRemoving(player)
+	end)
 end
 
 function MatchService:_getCoordinator(): MatchCoordinator

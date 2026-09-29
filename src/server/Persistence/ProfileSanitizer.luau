@@ -84,12 +84,17 @@ local function sanitizeMove(
 	local candidate = moves[key]
 	local moveId = if type(candidate) == "string" then candidate else fallback
 	local definition = MovesConfig.Get(moveId)
-	if definition == nil or definition.Category ~= expectedCategory then
+	if
+		definition == nil
+		or definition.Category ~= expectedCategory
+		or unlockedMoves[moveId] ~= true
+	then
 		moveId = fallback
 	end
 
 	moves[key] = moveId
-	unlockedMoves[moveId] = true
+	-- Default loadout moves are always available, even in older profiles.
+	unlockedMoves[fallback] = true
 end
 
 function ProfileSanitizer.Apply(data: Dictionary)

@@ -9,6 +9,7 @@ local Contracts = require(ReplicatedStorage.Shared.Network.Contracts)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 local Trove = require(ReplicatedStorage.Packages.Trove)
+local WeaponAttack = require(script.Parent.Parent.Domain.Combat.WeaponAttack)
 local WeaponComponentModule = require(script.Parent.Parent.Components.WeaponComponent)
 
 type WeaponAction = NetworkTypes.WeaponAction
@@ -142,35 +143,17 @@ function WeaponService:RequestAction(
 			return false, "Weapon is not owned by this player"
 		end
 	else
-		if not component:IsEquippedBy(player) then
-			return false, "Weapon must be equipped"
-		end
-		if not self._matchService:IsMatchActiveFor(player) then
-			return false, "No active match"
-		end
-		if not self:_belongsToPlayerArena(player, component) then
-			return false, "Weapon does not belong to this match arena"
-		end
-		if not component:CanUse() then
-			return false, "Weapon is not ready"
-		end
-		local consumed, previousUsedAt, revision = component:ConsumeUse()
-		if not consumed then
-			return false, "Weapon state changed before commit"
-		end
-		local appliedWithoutError, applied = pcall(function()
-			return self._combatService:ApplyWeaponAttack(
-				player,
-				component:GetDamageSpec(),
-				component.DefinitionId
-			)
-		end)
-		if not appliedWithoutError or not applied then
-			component:RollbackUse(previousUsedAt :: number, revision :: number)
-			if not appliedWithoutError then
-				warn(`Weapon attack failed for user {player.UserId}: {tostring(applied)}`)
+		local accepted, message = WeaponAttack.Try(
+			player,
+			component,
+			self._matchService,
+			self._combatService,
+			function(candidate, weapon)
+				return self:_belongsToPlayerArena(candidate, weapon)
 			end
-			return false, "No valid target"
+		)
+		if not accepted then
+			return false, message
 		end
 	end
 

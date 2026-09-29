@@ -1,8 +1,11 @@
 --!strict
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local MatchCoordinator = require(ServerScriptService.Server.Application.MatchCoordinator)
 local MatchSession = require(ServerScriptService.Server.Domain.Match.MatchSession)
+local Promise = require(ReplicatedStorage.Packages.Promise)
 
 return function()
 	describe("MatchCoordinator rewards", function()
@@ -64,6 +67,107 @@ return function()
 			expect(coordinator:_finishSession(rematch, second, first, "Pin")).to.equal(true)
 			expect(#awards).to.equal(2)
 			coordinator:Destroy()
+		end)
+
+		it("retries queued players after an arena is released", function()
+			local coordinator = createCoordinator()
+			local attempts = 0
+			local arenaAvailable = false
+			(coordinator :: any)._isQueueReady = function()
+				return true
+			end
+			(coordinator :: any)._createMatch = function()
+				attempts += 1
+				return arenaAvailable
+			end
+			table.insert(coordinator._queue, first)
+			table.insert(coordinator._queue, second)
+			coordinator:_matchmake()
+			expect(attempts).to.equal(1)
+			expect(#coordinator._queue).to.equal(2)
+			arenaAvailable = true
+			local completed = activeSession("completed", 31)
+			completed:Finish()
+			coordinator._sessions[completed.Id] = completed
+			coordinator:_cleanupSession(completed)
+			expect(attempts).to.equal(2)
+			expect(#coordinator._queue).to.equal(0)
+			coordinator:Destroy()
+		end)
+
+		it("retries queued players when an arena is registered", function()
+			local coordinator = createCoordinator()
+			local attempts = 0
+			(coordinator :: any)._isQueueReady = function()
+				return true
+			end
+			(coordinator :: any)._createMatch = function()
+				attempts += 1
+				return true
+			end
+			table.insert(coordinator._queue, first)
+			table.insert(coordinator._queue, second)
+			local arena = Instance.new("Model")
+			arena.Name = "NewRing"
+			coordinator._arenaRegistry:Add(arena)
+			expect(attempts).to.equal(1)
+			expect(#coordinator._queue).to.equal(0)
+			coordinator:Destroy()
+			arena:Destroy()
+		end)
+
+		it("keeps both departing profiles until a yielding reward claim settles", function()
+			local coordinator, awards = createCoordinator()
+			local session = activeSession("disconnect", 31)
+			coordinator._sessions[session.Id] = session
+			coordinator._matchesByPlayer[first] = session
+			coordinator._matchesByPlayer[second] = session
+			local claimStarted = Instance.new("BindableEvent")
+			local resumeClaim: (() -> ())? = nil
+			local claimGate = Promise.new(function(resolve)
+				resumeClaim = resolve
+			end)
+			local finished = Instance.new("BindableEvent")
+			local secondDeparted = Instance.new("BindableEvent")
+			local firstDepartureFinished = false
+			local secondReleased = false
+			(coordinator :: any).GetOpponents = function()
+				return { first }
+			end
+			(coordinator :: any)._rewardCooldown = {
+				TryClaim = function()
+					claimStarted:Fire()
+					claimGate:await()
+					return true
+				end,
+			}
+			task.defer(function()
+				coordinator:HandlePlayerRemoving(second)
+				firstDepartureFinished = true
+				finished:Fire()
+			end)
+			claimStarted.Event:Wait()
+			task.defer(function()
+				coordinator:HandlePlayerRemoving(first)
+				secondReleased = true
+				secondDeparted:Fire()
+			end)
+			RunService.Heartbeat:Wait()
+			expect(secondReleased).to.equal(false)
+			assert(resumeClaim ~= nil, "Reward claim gate was not created")
+			resumeClaim()
+			if not firstDepartureFinished then
+				finished.Event:Wait()
+			end
+			if not secondReleased then
+				secondDeparted.Event:Wait()
+			end
+			expect(#awards).to.equal(2)
+			expect(secondReleased).to.equal(true)
+			coordinator:Destroy()
+			claimStarted:Destroy()
+			finished:Destroy()
+			secondDeparted:Destroy()
 		end)
 	end)
 end

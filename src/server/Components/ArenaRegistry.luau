@@ -3,6 +3,7 @@
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Signal = require(ReplicatedStorage.Packages.Signal)
 local Trove = require(ReplicatedStorage.Packages.Trove)
 
 type SpawnPoint = {
@@ -19,6 +20,7 @@ export type ArenaRegistry = typeof(setmetatable(
 		_arenas: { [string]: Model },
 		_reservations: { [string]: string },
 		_trove: typeof(Trove.new()),
+		Available: typeof(Signal.new()),
 	},
 	{} :: typeof(ArenaRegistry)
 ))
@@ -43,7 +45,9 @@ function ArenaRegistry.new(): ArenaRegistry
 		_arenas = {},
 		_reservations = {},
 		_trove = Trove.new(),
+		Available = Signal.new(),
 	}, ArenaRegistry)
+	self._trove:Add(self.Available)
 
 	for _, instance in CollectionService:GetTagged("WrestlingArena") do
 		self:Add(instance)
@@ -83,6 +87,9 @@ function ArenaRegistry:Add(instance: Instance)
 	end
 
 	self._arenas[arenaId] = instance
+	if existing == nil then
+		self.Available:Fire()
+	end
 end
 
 function ArenaRegistry:Remove(instance: Instance)

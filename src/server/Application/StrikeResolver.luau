@@ -42,6 +42,7 @@ export type Dependencies = {
 	EmitToParticipants: EmitToParticipants,
 	EmitStarted: EmitStarted,
 	CanResolve: CanResolve,
+	Delay: ((number) -> any)?,
 }
 
 local StrikeResolver = {}
@@ -58,6 +59,7 @@ export type StrikeResolver = typeof(setmetatable(
 		_emitToParticipants: EmitToParticipants,
 		_emitStarted: EmitStarted,
 		_canResolve: CanResolve,
+		_delay: (number) -> any,
 	},
 	{} :: typeof(StrikeResolver)
 ))
@@ -82,6 +84,7 @@ function StrikeResolver.new(dependencies: Dependencies): StrikeResolver
 		_emitToParticipants = dependencies.EmitToParticipants,
 		_emitStarted = dependencies.EmitStarted,
 		_canResolve = dependencies.CanResolve,
+		_delay = dependencies.Delay or Promise.delay,
 	}, StrikeResolver)
 end
 
@@ -151,7 +154,7 @@ function StrikeResolver:Request(
 		local range = if action == "TurnbuckleAttack"
 			then CombatConfig.Targeting.GrappleRange + 3
 			else CombatConfig.Targeting.AttackRange
-		local impact = Promise.delay(impactSeconds):andThen(function()
+		local impact = self._delay(impactSeconds):andThen(function()
 			if
 				self._getCombatant(player) ~= combatant
 				or combatant:GetState() ~= actionState

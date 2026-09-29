@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local PlayerDataSnapshot = require(ReplicatedStorage.Shared.Util.PlayerDataSnapshot)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
+local PlayerDeparture = require(script.Parent.Parent.Persistence.PlayerDeparture)
 local PlayerRepository = require(script.Parent.Parent.Persistence.PlayerRepository)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Trove = require(ReplicatedStorage.Packages.Trove)
@@ -22,6 +23,8 @@ local DataService = Knit.CreateService({
 function DataService:KnitInit()
 	self._trove = Trove.new()
 	self._repository = PlayerRepository.new()
+	self._departure = PlayerDeparture.new(self._repository)
+	self._trove:Add(self._departure)
 	self._loading = {}
 	self.Loaded = Signal.new()
 	self._trove:Add(self.Loaded)
@@ -60,9 +63,7 @@ function DataService:KnitStart()
 
 	self._trove:Connect(Players.PlayerRemoving, function(player)
 		self._loading[player] = nil
-		task.defer(function()
-			self._repository:Release(player)
-		end)
+		self._departure:Release(player)
 	end)
 
 	for _, player in Players:GetPlayers() do
@@ -70,8 +71,12 @@ function DataService:KnitStart()
 	end
 
 	game:BindToClose(function()
-		self._repository:ReleaseAll()
+		self._departure:ReleaseAll()
 	end)
+end
+
+function DataService:SetBeforeRelease(callback: (Player) -> ())
+	self._departure:SetBeforeRelease(callback)
 end
 
 function DataService:Get(player: Player): PlayerData?

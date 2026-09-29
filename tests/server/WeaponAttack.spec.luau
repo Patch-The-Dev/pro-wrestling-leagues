@@ -1,22 +1,18 @@
 --!strict
 
 local ServerScriptService = game:GetService("ServerScriptService")
-local WeaponService = require(ServerScriptService.Server.Services.WeaponService)
+local WeaponAttack = require(ServerScriptService.Server.Domain.Combat.WeaponAttack)
 
 return function()
-	describe("WeaponService", function()
+	describe("WeaponAttack", function()
 		it("reserves durability before combat and restores it on a miss", function()
 			local calls = {}
-			local tool = Instance.new("Tool")
+			local player = { UserId = 1 } :: any
 			local component = {
-				Instance = tool,
 				DefinitionId = "Test Weapon",
 				Durability = 2,
 				IsEquippedBy = function()
 					return true
-				end,
-				GetWorldParent = function()
-					return workspace
 				end,
 				CanUse = function()
 					return true
@@ -34,32 +30,29 @@ return function()
 					return {} :: any
 				end,
 			} :: any
-			local previousWeapons = WeaponService._weaponsByNetworkId
-			local previousMatch = WeaponService._matchService
-			local previousCombat = WeaponService._combatService
-			WeaponService._weaponsByNetworkId = { test = component }
-			WeaponService._matchService = {
+			local matchSource = {
 				IsMatchActiveFor = function()
 					return true
 				end,
-				IsInstanceInPlayerArena = function()
-					return true
-				end,
-			}
-			WeaponService._combatService = {
+			} :: any
+			local combatSource = {
 				ApplyWeaponAttack = function()
 					table.insert(calls, "apply")
 					return false
 				end,
-			}
-			local succeeded = WeaponService:RequestAction({ UserId = 1 } :: any, "test", "Attack")
+			} :: any
+			local succeeded = WeaponAttack.Try(
+				player,
+				component,
+				matchSource,
+				combatSource,
+				function()
+					return true
+				end
+			)
 			expect(succeeded).to.equal(false)
 			expect(table.concat(calls, ",")).to.equal("consume,apply,rollback")
 			expect(component.Durability).to.equal(2)
-			WeaponService._weaponsByNetworkId = previousWeapons
-			WeaponService._matchService = previousMatch
-			WeaponService._combatService = previousCombat
-			tool:Destroy()
 		end)
 	end)
 end

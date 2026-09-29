@@ -58,4 +58,6 @@ if ($report -notmatch "(?m)^\s*$sentinel\s*$" -or (-not $Bootstrap -and $report 
     Write-Output $report
     throw 'Pro Wrestling Leagues Studio check failed.'
 }
-$report -split '\r?\n' | Where-Object { $_ -match '^\d+ passed, 0 failed, 0 skipped$|^PRO_WRESTLING_LEAGUES_.*_PASS$' }
+$report -split '\r?\n' |
+    Where-Object { $_ -match '^\d+ passed, 0 failed, 0 skipped$|^PRO_WRESTLING_LEAGUES_.*_PASS$' } |
+    Select-Object -Last 2

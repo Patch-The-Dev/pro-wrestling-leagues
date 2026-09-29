@@ -22,6 +22,7 @@ type MatchResult = MatchTypes.MatchResult
 type MatchSession = MatchSessionModule.MatchSession
 type MatchUpdate = NetworkTypes.MatchUpdate
 type RewardCooldown = RewardCooldownModule.RewardCooldown
+type Settlement = { Complete: boolean, Event: BindableEvent }
 
 type DataSource = {
 	IsLoaded: (self: DataSource, player: Player) -> boolean,
@@ -81,6 +82,7 @@ export type MatchCoordinator = typeof(setmetatable(
 		_queue: { Player },
 		_matchesByPlayer: { [Player]: MatchSession },
 		_sessions: { [string]: MatchSession },
+		_settlementsByPlayer: { [Player]: Settlement },
 		_rewardCooldown: RewardCooldown,
 	},
 	{} :: typeof(MatchCoordinator)
@@ -103,15 +105,15 @@ function MatchCoordinator.new(dependencies: Dependencies): MatchCoordinator
 		_queue = {},
 		_matchesByPlayer = {},
 		_sessions = {},
+		_settlementsByPlayer = {},
 		_rewardCooldown = rewardCooldown,
 	}, MatchCoordinator)
 
 	trove:Add(arenaRegistry)
 	trove:Add(rewardCooldown)
-	trove:Connect(Players.PlayerRemoving, function(player)
-		self:_handlePlayerRemoving(player)
+	trove:Connect(arenaRegistry.Available, function()
+		self:_matchmake()
 	end)
-
 	return self
 end
 
@@ -149,16 +151,18 @@ function MatchCoordinator:LeaveQueue(player: Player)
 	self._emitQueueChanged(player, false)
 end
 
+function MatchCoordinator:_isQueueReady(player: Player): boolean
+	return player.Parent == Players
+		and self._dataSource:IsLoaded(player)
+		and isCharacterReady(player)
+end
+
 function MatchCoordinator:_matchmake()
 	while #self._queue >= MatchConfig.MinimumPlayers do
 		local players: { Player } = {}
 		while #players < MatchConfig.MaximumPlayers and #self._queue > 0 do
 			local player = table.remove(self._queue, 1)
-			if
-				player.Parent == Players
-				and self._dataSource:IsLoaded(player)
-				and isCharacterReady(player)
-			then
+			if self:_isQueueReady(player) then
 				table.insert(players, player)
 			else
 				self._emitQueueChanged(player, false)
@@ -175,12 +179,7 @@ function MatchCoordinator:_matchmake()
 		if not self:_createMatch(players) then
 			for index = #players, 1, -1 do
 				local player = players[index]
-				if
-					player.Parent == Players
-					and self._dataSource:IsLoaded(player)
-					and isCharacterReady(player)
-					and self._matchesByPlayer[player] == nil
-				then
+				if self:_isQueueReady(player) and self._matchesByPlayer[player] == nil then
 					table.insert(self._queue, 1, player)
 					self._emitQueueChanged(player, true)
 				end
@@ -419,6 +418,10 @@ function MatchCoordinator:_finishSession(
 	if not session:Finish() then
 		return false
 	end
+	local settlement: Settlement = { Complete = false, Event = Instance.new("BindableEvent") }
+	for _, player in session.Players do
+		self._settlementsByPlayer[player] = settlement
+	end
 
 	if winner ~= nil and loser ~= nil then
 		local now = workspace:GetServerTimeNow()
@@ -430,6 +433,8 @@ function MatchCoordinator:_finishSession(
 			self:_award(loser, false, session.Id)
 		end
 	end
+	settlement.Complete = true
+	settlement.Event:Fire()
 
 	for _, player in session.Players do
 		self._emitMatchChanged(player, {
@@ -478,6 +483,14 @@ function MatchCoordinator:_cleanupSession(session: MatchSession)
 		end
 	end
 	session:Destroy()
+	local settlement = self._settlementsByPlayer[session.Players[1]]
+	for _, player in session.Players do
+		self._settlementsByPlayer[player] = nil
+	end
+	if settlement ~= nil then
+		settlement.Event:Destroy()
+	end
+	self:_matchmake()
 end
 
 function MatchCoordinator:VoteToEnd(player: Player): boolean
@@ -492,11 +505,11 @@ function MatchCoordinator:VoteToEnd(player: Player): boolean
 	return true
 end
 
-function MatchCoordinator:_handlePlayerRemoving(player: Player)
+function MatchCoordinator:HandlePlayerRemoving(player: Player)
 	self:LeaveQueue(player)
 
 	local session = self._matchesByPlayer[player]
-	if session == nil or session.State == "Complete" then
+	if session == nil then
 		return
 	end
 
@@ -507,8 +520,13 @@ function MatchCoordinator:_handlePlayerRemoving(player: Player)
 		else
 			self:_cleanupSession(session)
 		end
-	else
+	elseif session.State == "Starting" then
 		self:_cancelStartingSession(session, player)
+	end
+
+	local settlement = self._settlementsByPlayer[player]
+	if settlement ~= nil and not settlement.Complete then
+		settlement.Event.Event:Wait()
 	end
 end
 
@@ -519,6 +537,10 @@ function MatchCoordinator:Destroy()
 	table.clear(self._sessions)
 	table.clear(self._matchesByPlayer)
 	table.clear(self._queue)
+	for _, settlement in self._settlementsByPlayer do
+		settlement.Event:Destroy()
+	end
+	table.clear(self._settlementsByPlayer)
 	self._trove:Destroy()
 end
 

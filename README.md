@@ -23,13 +23,13 @@ Start with the [review guide](docs/REVIEW_GUIDE.md) for a short reading order, o
 
 ## Gameplay systems in this code
 
-The match flow pairs two eligible players, reserves an arena, places their characters, runs both entrances, then starts an active session. The countdown is derived from the entrance timing and checks that both original characters are alive and loaded before activation. A session records pin, knockout, forfeit, or vote results. The arena and combat state are cleaned up when the session closes.
+The match flow pairs two eligible players, reserves an arena, places their characters, runs both entrances, then starts an active session. The countdown is derived from the entrance timing and checks that both original characters are alive and loaded before activation. A session records pin, knockout, forfeit, or vote results. Queued players are retried when an occupied arena is released or a new arena is registered. The arena and combat state are cleaned up when the session closes.
 
 Combat includes a three-hit strike chain, running attacks, directional grapples, finishers, reversals, pins, stamina, health, poise, and finisher charge. `Combatant` owns the state of each fighter. `ActionBudget` checks cooldowns and resources. Strike animations start when the server accepts an action; the server checks range, facing, line of sight, and match state again at the move's configured impact time before applying damage. Timed interactions and delayed recovery are owned by the corresponding session or scheduler so old work cannot change a later combat state. Pin input uses a visible client timing bar and a capped allowance derived from server-measured round-trip latency.
 
 The server also manages arena weapons and turnbuckle interactions. Weapon instances are tracked by identity and arena, with ownership, cooldown, and durability checks. CollectionService tags bind world behavior without copying a handler script into every asset.
 
-Eligible match rewards feed persistent Cash, Tickets, experience, fame, and win/loss records. A match must last at least 30 seconds to pay out. A MemoryStore claim prevents the same opponent pair from earning another payout across servers for 10 minutes. If the shared claim fails, the match ends without a payout and the failure is logged. Early forfeits also pay nothing. The shop checks item prices and ownership on the server. Customization code handles move loadouts and appearance choices against the player's unlocks. Client controllers handle the interface and audiovisual response to events; they do not decide combat outcomes or write profile data.
+Eligible match rewards feed persistent Cash, Tickets, experience, fame, and win/loss records. A match must last at least 30 seconds to pay out. A MemoryStore claim prevents the same opponent pair from earning another payout across servers for 10 minutes. If the shared claim fails, the match ends without a payout and the failure is logged. Early forfeits also pay nothing. On disconnect, profile release waits for the shared claim and both participants' reward attempts to finish. Failed profile updates are logged. The shop checks item prices and ownership on the server. Saved move loadouts are checked against owned unlocks before use; an unowned move falls back to its default slot. Client controllers handle the interface and audiovisual response to events; they do not decide combat outcomes or write profile data.
 
 The server records match outcomes, reasons, and duration for connected participants through Roblox analytics in the live experience. Reward update failures are logged separately so missing profile updates are visible during operation.
 
@@ -98,7 +98,7 @@ rojo build default.project.json -o ProWrestlingLeagues.rbxlx
 rojo build test.project.json -o ProWrestlingLeaguesTests.rbxlx
 ```
 
-The isolated TestEZ place covers match state, reward eligibility and award integration, movement plausibility, strike impact timing, weapon rollback, reversals, pin timing, player data, and recovery cancellation. On Windows, the checked-in runner builds the test place, runs it in Studio, and fails if the passing result is missing:
+The isolated TestEZ place covers match state, queue retries, disconnect settlement, reward eligibility and award integration, movement plausibility, strike impact timing, weapon rollback, reversals, pin timing, player data ownership, and recovery cancellation. On Windows, the checked-in runner builds the test place, runs it in Studio, and fails if the passing result is missing:
 
 ```powershell
 .\tests\RunStudioTests.ps1
