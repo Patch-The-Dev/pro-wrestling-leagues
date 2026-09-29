@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local MatchCoordinator = require(ServerScriptService.Server.Application.MatchCoordinator)
 local MatchSession = require(ServerScriptService.Server.Domain.Match.MatchSession)
+local PlayerDeparture = require(ServerScriptService.Server.Persistence.PlayerDeparture)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 
 return function()
@@ -131,10 +132,21 @@ return function()
 			local secondDeparted = Instance.new("BindableEvent")
 			local firstDepartureFinished = false
 			local secondReleased = false
-			(coordinator :: any).GetOpponents = function()
+			local released = {}
+			local departures = PlayerDeparture.new({
+				Release = function(_, player)
+					released[player] = true
+				end,
+				ReleaseAll = function() end,
+			} :: any)
+			departures:SetBeforeRelease(function(player)
+				coordinator:HandlePlayerRemoving(player)
+			end)
+			local mutableCoordinator = coordinator :: any
+			mutableCoordinator.GetOpponents = function()
 				return { first }
 			end
-			(coordinator :: any)._rewardCooldown = {
+			mutableCoordinator._rewardCooldown = {
 				TryClaim = function()
 					claimStarted:Fire()
 					claimGate:await()
@@ -142,18 +154,20 @@ return function()
 				end,
 			}
 			task.defer(function()
-				coordinator:HandlePlayerRemoving(second)
+				departures:Release(second)
 				firstDepartureFinished = true
 				finished:Fire()
 			end)
 			claimStarted.Event:Wait()
 			task.defer(function()
-				coordinator:HandlePlayerRemoving(first)
+				departures:Release(first)
 				secondReleased = true
 				secondDeparted:Fire()
 			end)
 			RunService.Heartbeat:Wait()
 			expect(secondReleased).to.equal(false)
+			expect(released[first]).to.equal(nil)
+			expect(released[second]).to.equal(nil)
 			assert(resumeClaim ~= nil, "Reward claim gate was not created")
 			resumeClaim()
 			if not firstDepartureFinished then
@@ -164,6 +178,9 @@ return function()
 			end
 			expect(#awards).to.equal(2)
 			expect(secondReleased).to.equal(true)
+			expect(released[first]).to.equal(true)
+			expect(released[second]).to.equal(true)
+			departures:Destroy()
 			coordinator:Destroy()
 			claimStarted:Destroy()
 			finished:Destroy()
