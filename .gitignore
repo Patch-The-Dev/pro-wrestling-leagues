@@ -1,0 +1,17 @@
+# Wally output
+Packages/
+ServerPackages/
+DevPackages/
+
+# Rojo / generated
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+sourcemap.json
+
+# Local tooling
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

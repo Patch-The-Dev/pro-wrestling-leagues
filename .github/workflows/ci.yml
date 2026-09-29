@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Rokit
+        uses: paradoxum-games/setup-rokit@v3
+        with:
+          version: 1.2.0
+          cache: true
+
+      - name: Install packages
+        run: wally install --locked
+
+      - name: Generate sourcemap and package types
+        run: |
+          rojo sourcemap default.project.json --output sourcemap.json
+          wally-package-types --sourcemap sourcemap.json Packages/
+          wally-package-types --sourcemap sourcemap.json ServerPackages/
+
+      - name: Check formatting
+        run: stylua --check src
+
+      - name: Lint
+        run: selene src
+
+      - name: Typecheck
+        run: luau-lsp analyze --sourcemap=sourcemap.json src
+
+      - name: Build Rojo project
+        run: rojo build default.project.json -o ProWrestlingLeagues.rbxlx
