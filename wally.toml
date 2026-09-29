@@ -1,6 +1,6 @@
 [package]
 name = "patch-the-dev/pro-wrestling-leagues"
-description = "Portfolio refactor of Pro Wrestling Leagues"
+description = "Luau application code for Pro Wrestling Leagues"
 version = "0.1.0"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"

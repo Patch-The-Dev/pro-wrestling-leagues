@@ -96,4 +96,4 @@ The source tree is the reviewable application layer; the [live Roblox game](http
 - [Architecture](docs/ARCHITECTURE.md): module boundaries, state ownership, and cleanup.
 - [Review guide](docs/REVIEW_GUIDE.md): suggested reading order and invariants to check.
 - [Runtime assets](docs/RUNTIME_ASSETS.md): arena, weapon, animation, and entrance contracts.
-- [Refactor notes](docs/REFACTOR_NOTES.md): original Studio source audit and redesign decisions.
+- [Refactor notes](docs/REFACTOR_NOTES.md): source organization and redesign decisions.
