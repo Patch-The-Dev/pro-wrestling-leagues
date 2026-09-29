@@ -35,6 +35,8 @@ Optional children:
 
 - `Spawns` folder containing BaseParts. Use a numeric name or a numeric `SpawnIndex` attribute to define order.
 
+Match placement records each character's position before moving it into the arena and returns that same character there before the arena is released. Queue entry points should therefore be outside the ring's playable area. A character that respawns during the match uses normal Roblox spawning and is not moved by the old match.
+
 ## Weapons
 
 Tag each Tool with `WrestlingWeapon`. Supported attributes are:

@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local MatchCoordinator = require(ServerScriptService.Server.Application.MatchCoordinator)
+local MatchPlacement = require(ServerScriptService.Server.Domain.Match.MatchPlacement)
 local MatchSession = require(ServerScriptService.Server.Domain.Match.MatchSession)
 local PlayerDeparture = require(ServerScriptService.Server.Persistence.PlayerDeparture)
 local Promise = require(ReplicatedStorage.Packages.Promise)
@@ -111,6 +112,41 @@ return function()
 			expect(attempts).to.equal(2)
 			expect(#coordinator._queue).to.equal(0)
 			coordinator:Destroy()
+		end)
+
+		it("moves match characters out before releasing their arena", function()
+			local coordinator = createCoordinator()
+			local character = Instance.new("Model")
+			local root = Instance.new("Part")
+			root.Name = "HumanoidRootPart"
+			root.Parent = character
+			character:PivotTo(CFrame.new(10, 5, 0))
+			local player = { Character = character } :: any
+			local secondCharacter = Instance.new("Model")
+			local secondRoot = Instance.new("Part")
+			secondRoot.Name = "HumanoidRootPart"
+			secondRoot.Parent = secondCharacter
+			secondCharacter:PivotTo(CFrame.new(20, 5, 0))
+			local secondPlayer = { Character = secondCharacter } :: any
+			local session = MatchSession.new("return-test", "arena", { player, secondPlayer })
+			session:BeginStarting()
+			local spawns = { CFrame.new(100, 5, 0), CFrame.new(110, 5, 0) }
+			local placement = MatchPlacement.new({ player, secondPlayer }, spawns)
+			assert(placement ~= nil, "Expected valid match placement")
+			expect(placement:Place()).to.equal(true)
+			coordinator._sessions[session.Id] = session
+			coordinator._placements[session.Id] = placement
+			local originalRelease = coordinator._arenaRegistry.Release
+			local positionAtRelease: number? = nil
+			(coordinator._arenaRegistry :: any).Release = function(_, matchId)
+				positionAtRelease = character:GetPivot().Position.X
+				originalRelease(coordinator._arenaRegistry, matchId)
+			end
+			coordinator:_cleanupSession(session)
+			expect(positionAtRelease).to.equal(10)
+			coordinator:Destroy()
+			character:Destroy()
+			secondCharacter:Destroy()
 		end)
 
 		it("retries queued players when an arena is registered", function()

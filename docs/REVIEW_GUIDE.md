@@ -22,9 +22,10 @@ This repository presents the Luau application code for Pro Wrestling Leagues. Th
 - Clients receive match completion before the shared reward claim runs; a pending claim still blocks requeue and profile release through the bounded settlement wait.
 - A departing player's profile waits for the match reward claim and both profile updates, up to the configured settlement deadline.
 - Queueing retries when an arena becomes available.
+- Match cleanup returns original characters to their pre-match positions before releasing the arena; a respawned character is left alone.
 - Persisted equipped moves cannot grant their own unlocks.
 - A cancelled countdown cannot begin combat, and stale entrance cues cannot play after match activation.
-- Running actions require plausible sampled travel, not velocity alone.
+- Running actions require plausible sampled travel, not velocity alone. Movement checks include vertical travel and current-position validation between sampling ticks.
 - Persistence is accessed through one repository boundary.
 - Stateful objects own cleanup through Trove.
 - Timed interactions use server time.

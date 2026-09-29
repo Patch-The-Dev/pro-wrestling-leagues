@@ -88,6 +88,7 @@ export type CombatCoordinator = typeof(setmetatable(
 		_grapples: GrappleCoordinator,
 		_pins: PinCoordinator,
 		_strikes: StrikeResolver,
+		_stepElapsed: number,
 	},
 	{} :: typeof(CombatCoordinator)
 ))
@@ -189,6 +190,7 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 		_grapples = grapples,
 		_pins = pins,
 		_strikes = strikes,
+		_stepElapsed = 0,
 	}, CombatCoordinator)
 
 	trove:Add(budget)
@@ -265,12 +267,22 @@ function CombatCoordinator:_removePlayer(player: Player)
 end
 
 function CombatCoordinator:_step(deltaTime: number)
+	self._stepElapsed += deltaTime
+	if self._stepElapsed < CombatConfig.Movement.SampleIntervalSeconds then
+		return
+	end
+	local stepTime = self._stepElapsed
+	self._stepElapsed = 0
+	local now = workspace:GetServerTimeNow()
 	for player, combatant in self._combatants do
+		if not self._matchSource:IsMatchActiveFor(player) then
+			continue
+		end
 		local root = combatant.Character:FindFirstChild("HumanoidRootPart")
 		if root ~= nil and root:IsA("BasePart") then
-			self._movement:Observe(player, root.Position, workspace:GetServerTimeNow())
+			self._movement:Observe(player, root.Position, now)
 		end
-		combatant:Step(deltaTime)
+		combatant:Step(stepTime)
 
 		if combatant:GetState() == "Dead" and self._reportedDeaths[player] ~= true then
 			self._reportedDeaths[player] = true

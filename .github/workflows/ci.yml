@@ -32,7 +32,7 @@ jobs:
       - name: Lint
         run: selene src tests
 
-      - name: Type check persistence and core rules
+      - name: Type check persistence, core rules, placement, and animation
         run: |
           rojo sourcemap default.project.json --include-non-scripts -o sourcemap.json
           curl -fsSL https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/1.70.0/scripts/globalTypes.d.luau -o "$RUNNER_TEMP/robloxTypes.d.luau"
@@ -43,6 +43,9 @@ jobs:
             src/server/Domain/Economy/MatchRewardLedger.luau \
             src/server/Domain/Economy/RewardPolicy.luau \
             src/server/Domain/Combat/MovementHistory.luau \
+            src/server/Domain/Match/MatchPlacement.luau \
+            src/server/Adapters/CharacterAdapter.luau \
+            src/client/Systems/AnimationSystem.luau \
             src/shared/Network/Contracts.luau \
             src/shared/Util/PlayerDataSnapshot.luau
 

@@ -11,7 +11,7 @@ local Promise = require(ReplicatedStorage.Packages.Promise)
 local Trove = require(ReplicatedStorage.Packages.Trove)
 
 local ArenaRegistryModule = require(script.Parent.Parent.Components.ArenaRegistry)
-local CharacterAdapter = require(script.Parent.Parent.Adapters.CharacterAdapter)
+local MatchPlacementModule = require(script.Parent.Parent.Domain.Match.MatchPlacement)
 local MatchSessionModule = require(script.Parent.Parent.Domain.Match.MatchSession)
 local RewardCooldownModule = require(script.Parent.Parent.Domain.Economy.RewardCooldown)
 local RewardPolicy = require(script.Parent.Parent.Domain.Economy.RewardPolicy)
@@ -20,6 +20,7 @@ type ArenaRegistry = ArenaRegistryModule.ArenaRegistry
 type MatchEndReason = MatchTypes.MatchEndReason
 type MatchResult = MatchTypes.MatchResult
 type MatchSession = MatchSessionModule.MatchSession
+type MatchPlacement = MatchPlacementModule.MatchPlacement
 type MatchUpdate = NetworkTypes.MatchUpdate
 type RewardCooldown = RewardCooldownModule.RewardCooldown
 type Settlement = {
@@ -91,6 +92,7 @@ export type MatchCoordinator = typeof(setmetatable(
 		_queue: { Player },
 		_matchesByPlayer: { [Player]: MatchSession },
 		_sessions: { [string]: MatchSession },
+		_placements: { [string]: MatchPlacement },
 		_settlementsByPlayer: { [Player]: Settlement },
 		_rewardCooldown: RewardCooldown,
 	},
@@ -114,6 +116,7 @@ function MatchCoordinator.new(dependencies: Dependencies): MatchCoordinator
 		_queue = {},
 		_matchesByPlayer = {},
 		_sessions = {},
+		_placements = {},
 		_settlementsByPlayer = {},
 		_rewardCooldown = rewardCooldown,
 	}, MatchCoordinator)
@@ -352,18 +355,11 @@ end
 
 function MatchCoordinator:_placePlayers(session: MatchSession): boolean
 	local spawns = self._arenaRegistry:GetSpawnCFrames(session.ArenaId)
-	if #spawns < #session.Players then
+	local placement = MatchPlacementModule.new(session.Players, spawns)
+	if placement == nil or not placement:Place() then
 		return false
 	end
-
-	for index, player in session.Players do
-		local character = player.Character
-		if character == nil then
-			return false
-		end
-
-		CharacterAdapter.PlaceAt(character, spawns[index])
-	end
+	self._placements[session.Id] = placement
 	return true
 end
 
@@ -559,6 +555,11 @@ function MatchCoordinator:_cleanupSession(session: MatchSession)
 		return
 	end
 
+	local placement = self._placements[session.Id]
+	if placement ~= nil then
+		placement:Restore()
+		self._placements[session.Id] = nil
+	end
 	self._sessions[session.Id] = nil
 	self._arenaRegistry:Release(session.Id)
 	for _, player in session.Players do
@@ -622,9 +623,14 @@ function MatchCoordinator:Destroy()
 		self:_waitForSettlement(settlement, deadline)
 	end
 	for _, session in self._sessions do
+		local placement = self._placements[session.Id]
+		if placement ~= nil then
+			placement:Restore()
+		end
 		session:Destroy()
 	end
 	table.clear(self._sessions)
+	table.clear(self._placements)
 	table.clear(self._matchesByPlayer)
 	table.clear(self._queue)
 	table.clear(self._settlementsByPlayer)

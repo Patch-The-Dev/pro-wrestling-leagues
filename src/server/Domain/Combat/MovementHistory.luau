@@ -14,6 +14,23 @@ type Sample = {
 local MovementHistory = {}
 MovementHistory.__index = MovementHistory
 
+local function isImplausibleTravel(offset: Vector3, elapsed: number): boolean
+	local horizontalDistance = Vector3.new(offset.X, 0, offset.Z).Magnitude
+	if
+		horizontalDistance
+		> CombatConfig.Movement.MaximumPlausibleSpeed * elapsed
+			+ CombatConfig.Movement.PositionSlackStuds
+	then
+		return true
+	end
+
+	local verticalSpeed = if offset.Y >= 0
+		then CombatConfig.Movement.MaximumPlausibleAscentSpeed
+		else CombatConfig.Movement.MaximumPlausibleDescentSpeed
+	return math.abs(offset.Y)
+		> verticalSpeed * elapsed + CombatConfig.Movement.VerticalPositionSlackStuds
+end
+
 export type MovementHistory = typeof(setmetatable(
 	{} :: {
 		_samples: { [Player]: Sample },
@@ -38,14 +55,11 @@ function MovementHistory:Observe(player: Player, position: Vector3, now: number)
 	end
 
 	local elapsed = now - sample.Time
+	if elapsed <= 0 then
+		return
+	end
 	if elapsed < CombatConfig.Movement.SampleIntervalSeconds then
-		local offset = position - sample.Position
-		local distance = Vector3.new(offset.X, 0, offset.Z).Magnitude
-		if
-			distance
-			> CombatConfig.Movement.MaximumPlausibleSpeed * math.max(0, elapsed)
-				+ CombatConfig.Movement.PositionSlackStuds
-		then
+		if isImplausibleTravel(position - sample.Position, elapsed) then
 			sample.BlockedUntil = now + CombatConfig.Movement.SuspiciousMovementLockSeconds
 		end
 		return
@@ -53,9 +67,7 @@ function MovementHistory:Observe(player: Player, position: Vector3, now: number)
 
 	local offset = position - sample.Position
 	local distance = Vector3.new(offset.X, 0, offset.Z).Magnitude
-	local maximumDistance = CombatConfig.Movement.MaximumPlausibleSpeed * elapsed
-		+ CombatConfig.Movement.PositionSlackStuds
-	if distance > maximumDistance then
+	if isImplausibleTravel(offset, elapsed) then
 		sample.BlockedUntil = now + CombatConfig.Movement.SuspiciousMovementLockSeconds
 	end
 

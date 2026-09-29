@@ -140,12 +140,11 @@ function Combatant.new(player: Player, character: Model): Combatant
 end
 
 function Combatant:_replicateSnapshot()
-	local snapshot = self:GetSnapshot()
-	setAttributeIfChanged(self.Character, "CombatState", snapshot.State)
-	setAttributeIfChanged(self.Character, "CombatHealth", snapshot.Health)
-	setAttributeIfChanged(self.Character, "CombatStamina", snapshot.Stamina)
-	setAttributeIfChanged(self.Character, "CombatPoise", snapshot.Poise)
-	setAttributeIfChanged(self.Character, "CombatFinisher", snapshot.Finisher)
+	setAttributeIfChanged(self.Character, "CombatState", self:GetState())
+	setAttributeIfChanged(self.Character, "CombatHealth", self._health)
+	setAttributeIfChanged(self.Character, "CombatStamina", self._stamina)
+	setAttributeIfChanged(self.Character, "CombatPoise", self._poise)
+	setAttributeIfChanged(self.Character, "CombatFinisher", self._finisher)
 end
 
 function Combatant:GetState(): CombatState

@@ -4,17 +4,21 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
-local Trove = require(ReplicatedStorage.Packages.Trove)
 
 type ResolvedAction = CombatTypes.ResolvedAction
 type AnimationRole = "Attacker" | "Victim"
+type TrackCacheEntry = {
+	Tracks: { [Animation]: AnimationTrack },
+	DestroyingConnection: RBXScriptConnection,
+	AncestryConnection: RBXScriptConnection,
+}
 
 local AnimationSystem = {}
 AnimationSystem.__index = AnimationSystem
 
 export type AnimationSystem = typeof(setmetatable(
 	{} :: {
-		_trove: typeof(Trove.new()),
+		_trackCache: { [Animator]: TrackCacheEntry },
 	},
 	AnimationSystem
 ))
@@ -53,8 +57,45 @@ end
 
 function AnimationSystem.new(): AnimationSystem
 	return setmetatable({
-		_trove = Trove.new(),
+		_trackCache = {},
 	}, AnimationSystem)
+end
+
+function AnimationSystem:_forgetAnimator(animator: Animator)
+	local entry = self._trackCache[animator]
+	if entry == nil then
+		return
+	end
+	self._trackCache[animator] = nil
+	entry.DestroyingConnection:Disconnect()
+	entry.AncestryConnection:Disconnect()
+	for _, track in entry.Tracks do
+		track:Destroy()
+	end
+end
+
+function AnimationSystem:_trackFor(animator: Animator, animation: Animation): AnimationTrack
+	local entry = self._trackCache[animator]
+	if entry == nil then
+		entry = {
+			Tracks = {},
+			DestroyingConnection = animator.Destroying:Connect(function()
+				self:_forgetAnimator(animator)
+			end),
+			AncestryConnection = animator.AncestryChanged:Connect(function(_, parent)
+				if parent == nil then
+					self:_forgetAnimator(animator)
+				end
+			end),
+		}
+		self._trackCache[animator] = entry
+	end
+	local track = entry.Tracks[animation]
+	if track == nil then
+		track = animator:LoadAnimation(animation)
+		entry.Tracks[animation] = track
+	end
+	return track
 end
 
 function AnimationSystem:_playForUser(userId: number, animation: Animation?)
@@ -70,12 +111,10 @@ function AnimationSystem:_playForUser(userId: number, animation: Animation?)
 		return
 	end
 
-	local track = animator:LoadAnimation(animation)
-	local trackTrove = self._trove:Extend()
-	trackTrove:Add(track)
-	trackTrove:Connect(track.Stopped, function()
-		trackTrove:Destroy()
-	end)
+	local track = self:_trackFor(animator, animation)
+	if track.IsPlaying then
+		track:Stop(0)
+	end
 	track:Play(0.1)
 end
 
@@ -98,7 +137,9 @@ function AnimationSystem:PlayStrikeImpact(event: ResolvedAction)
 end
 
 function AnimationSystem:Destroy()
-	self._trove:Destroy()
+	for animator in self._trackCache do
+		self:_forgetAnimator(animator)
+	end
 end
 
 return AnimationSystem
