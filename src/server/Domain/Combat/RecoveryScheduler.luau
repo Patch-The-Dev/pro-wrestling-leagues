@@ -2,11 +2,11 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Promise = require(ReplicatedStorage.Packages.Promise)
-local Trove = require(ReplicatedStorage.Packages.Trove)
 local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local CombatantModule = require(script.Parent.Combatant)
+local Promise = require(ReplicatedStorage.Packages.Promise)
+local Trove = require(ReplicatedStorage.Packages.Trove)
 
 type CombatState = CombatTypes.CombatState
 type Combatant = CombatantModule.Combatant
@@ -40,7 +40,8 @@ function RecoveryScheduler:_nextGeneration(combatant: Combatant): number
 end
 
 function RecoveryScheduler:_isCurrent(combatant: Combatant, generation: number): boolean
-	return self._generations[combatant] == generation and self._getCombatant(combatant.Player) == combatant
+	return self._generations[combatant] == generation
+		and self._getCombatant(combatant.Player) == combatant
 end
 
 function RecoveryScheduler:ScheduleState(

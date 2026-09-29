@@ -3,9 +3,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Trove = require(ReplicatedStorage.Packages.Trove)
-local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
 
 type PlayerData = PlayerDataTypes.PlayerData
 

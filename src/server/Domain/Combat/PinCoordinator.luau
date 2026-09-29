@@ -3,11 +3,11 @@
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Trove = require(ReplicatedStorage.Packages.Trove)
-local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 local CombatantModule = require(script.Parent.Combatant)
+local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 local PinSessionModule = require(script.Parent.PinSession)
 local RecoverySchedulerModule = require(script.Parent.RecoveryScheduler)
+local Trove = require(ReplicatedStorage.Packages.Trove)
 
 type Combatant = CombatantModule.Combatant
 type PinSession = PinSessionModule.PinSession

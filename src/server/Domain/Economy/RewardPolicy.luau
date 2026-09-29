@@ -14,7 +14,9 @@ type Reward = {
 local RewardPolicy = {}
 
 function RewardPolicy.ForMatchOutcome(didWin: boolean): Reward
-	local configured = if didWin then EconomyConfig.MatchRewards.Win else EconomyConfig.MatchRewards.Loss
+	local configured = if didWin
+		then EconomyConfig.MatchRewards.Win
+		else EconomyConfig.MatchRewards.Loss
 	return table.clone(configured)
 end
 

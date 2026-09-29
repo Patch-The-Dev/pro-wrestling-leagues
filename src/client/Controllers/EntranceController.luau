@@ -2,14 +2,14 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Knit = require(ReplicatedStorage.Packages.Knit)
-local Promise = require(ReplicatedStorage.Packages.Promise)
-local Trove = require(ReplicatedStorage.Packages.Trove)
-local EntranceConfig = require(ReplicatedStorage.Shared.Config.EntranceConfig)
 local AudioSystem = require(script.Parent.Parent.Systems.AudioSystem)
 local CameraSystem = require(script.Parent.Parent.Systems.CameraSystem)
+local EntranceConfig = require(ReplicatedStorage.Shared.Config.EntranceConfig)
+local Knit = require(ReplicatedStorage.Packages.Knit)
 local LightingSystem = require(script.Parent.Parent.Systems.LightingSystem)
+local Promise = require(ReplicatedStorage.Packages.Promise)
 local PyroSystem = require(script.Parent.Parent.Systems.PyroSystem)
+local Trove = require(ReplicatedStorage.Packages.Trove)
 
 local EntranceController = Knit.CreateController({
 	Name = "EntranceController",

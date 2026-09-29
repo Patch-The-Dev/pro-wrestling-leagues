@@ -69,44 +69,48 @@ register("Raise Hands", "Taunt", 1.25, {
 	StunSeconds = 0,
 })
 
-for _, id in {
-	"Chokeslam",
-	"DDT",
-	"Bodyslam",
-	"Drop Kick",
-	"Head Thrust",
-	"Suplex",
-	"Spinebuster",
-	"Piledriver",
-	"Swinging Backbreaker",
-	"Neckbreaker",
-	"German Suplex",
-	"Inverted DDT",
-	"Full Nelson Slam",
-	"Throne Buster",
-	"Powerbomb",
-	"Front Powerslam",
-	"Viper KO",
-	"Tornado Slam",
-	"Spear 1",
-	"Spear 2",
-} do
+for _, id in
+	{
+		"Chokeslam",
+		"DDT",
+		"Bodyslam",
+		"Drop Kick",
+		"Head Thrust",
+		"Suplex",
+		"Spinebuster",
+		"Piledriver",
+		"Swinging Backbreaker",
+		"Neckbreaker",
+		"German Suplex",
+		"Inverted DDT",
+		"Full Nelson Slam",
+		"Throne Buster",
+		"Powerbomb",
+		"Front Powerslam",
+		"Viper KO",
+		"Tornado Slam",
+		"Spear 1",
+		"Spear 2",
+	}
+do
 	register(id, "Grapple", 1.6, table.clone(STANDARD_GRAPPLE))
 end
 
-for _, id in {
-	"Shoulder Tackle",
-	"Cross Body",
-	"Leg Lariat",
-	"Running Bulldog",
-	"Running Clothesline",
-	"Running Knee",
-	"Running Neckbreaker",
-	"Somersault Neckbreaker",
-	"Thesz Press",
-	"Running Viper KO",
-	"Spear 3",
-} do
+for _, id in
+	{
+		"Shoulder Tackle",
+		"Cross Body",
+		"Leg Lariat",
+		"Running Bulldog",
+		"Running Clothesline",
+		"Running Knee",
+		"Running Neckbreaker",
+		"Somersault Neckbreaker",
+		"Thesz Press",
+		"Running Viper KO",
+		"Spear 3",
+	}
+do
 	register(id, "RunningGrapple", 1.45, table.clone(STANDARD_GRAPPLE))
 end
 

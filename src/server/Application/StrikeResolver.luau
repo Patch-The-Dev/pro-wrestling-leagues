@@ -6,10 +6,10 @@ local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
 
-local CharacterAdapter = require(script.Parent.Parent.Adapters.CharacterAdapter)
 local ActionBudgetModule = require(script.Parent.Parent.Domain.Combat.ActionBudget)
-local CombatantModule = require(script.Parent.Parent.Domain.Combat.Combatant)
+local CharacterAdapter = require(script.Parent.Parent.Adapters.CharacterAdapter)
 local CombatRules = require(script.Parent.Parent.Domain.Combat.CombatRules)
+local CombatantModule = require(script.Parent.Parent.Domain.Combat.Combatant)
 local RecoverySchedulerModule = require(script.Parent.Parent.Domain.Combat.RecoveryScheduler)
 
 type ActionBudget = ActionBudgetModule.ActionBudget
@@ -73,7 +73,11 @@ function StrikeResolver.new(dependencies: Dependencies): StrikeResolver
 	}, StrikeResolver)
 end
 
-function StrikeResolver:Request(player: Player, action: CombatAction, combatant: Combatant): (boolean, string?)
+function StrikeResolver:Request(
+	player: Player,
+	action: CombatAction,
+	combatant: Combatant
+): (boolean, string?)
 	local data = self._dataSource:Get(player)
 	if data == nil then
 		return false, "Player data is unavailable"

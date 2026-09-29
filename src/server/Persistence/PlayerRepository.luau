@@ -5,14 +5,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 
-local Promise = require(ReplicatedStorage.Packages.Promise)
 local ProfileStore = require(ServerScriptService.ServerPackages.ProfileStore)
+local Promise = require(ReplicatedStorage.Packages.Promise)
 
 local PersistenceConfig = require(script.Parent.Parent.Config.PersistenceConfig)
+local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
 local ProfileMigrations = require(script.Parent.ProfileMigrations)
 local ProfileSanitizer = require(script.Parent.ProfileSanitizer)
 local ProfileTemplate = require(script.Parent.ProfileTemplate)
-local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
 
 type Dictionary = { [string]: unknown }
 type PlayerData = PlayerDataTypes.PlayerData
@@ -51,7 +51,9 @@ export type PlayerRepository = typeof(setmetatable(
 ))
 
 function PlayerRepository.new(): PlayerRepository
-	local store = (ProfileStore.New(PersistenceConfig.StoreName, ProfileTemplate) :: unknown) :: ProfileStoreHandle
+	local store = (
+		ProfileStore.New(PersistenceConfig.StoreName, ProfileTemplate) :: unknown
+	) :: ProfileStoreHandle
 	if RunService:IsStudio() and PersistenceConfig.UseMockStoreInStudio then
 		store = store.Mock
 	end

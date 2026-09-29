@@ -3,8 +3,8 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Trove = require(ReplicatedStorage.Packages.Trove)
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
+local Trove = require(ReplicatedStorage.Packages.Trove)
 
 type ResolvedAction = CombatTypes.ResolvedAction
 type AnimationRole = "Attacker" | "Victim"

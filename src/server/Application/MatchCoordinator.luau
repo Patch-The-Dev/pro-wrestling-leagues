@@ -4,14 +4,14 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Promise = require(ReplicatedStorage.Packages.Promise)
-local Trove = require(ReplicatedStorage.Packages.Trove)
 local MatchConfig = require(ReplicatedStorage.Shared.Config.MatchConfig)
 local MatchTypes = require(ReplicatedStorage.Shared.Types.MatchTypes)
 local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
+local Promise = require(ReplicatedStorage.Packages.Promise)
+local Trove = require(ReplicatedStorage.Packages.Trove)
 
-local CharacterAdapter = require(script.Parent.Parent.Adapters.CharacterAdapter)
 local ArenaRegistryModule = require(script.Parent.Parent.Components.ArenaRegistry)
+local CharacterAdapter = require(script.Parent.Parent.Adapters.CharacterAdapter)
 local MatchSessionModule = require(script.Parent.Parent.Domain.Match.MatchSession)
 
 type ArenaRegistry = ArenaRegistryModule.ArenaRegistry
@@ -141,7 +141,11 @@ function MatchCoordinator:_matchmake()
 		local players: { Player } = {}
 		while #players < MatchConfig.MaximumPlayers and #self._queue > 0 do
 			local player = table.remove(self._queue, 1)
-			if player.Parent == Players and self._dataSource:IsLoaded(player) and isCharacterReady(player) then
+			if
+				player.Parent == Players
+				and self._dataSource:IsLoaded(player)
+				and isCharacterReady(player)
+			then
 				table.insert(players, player)
 			else
 				self._emitQueueChanged(player, false)
@@ -197,7 +201,13 @@ function MatchCoordinator:_createMatch(players: { Player }): boolean
 	end
 
 	if not self:_placePlayers(session) then
-		warn(string.format("Arena %q does not provide enough valid spawn points for match %s", session.ArenaId, session.Id))
+		warn(
+			string.format(
+				"Arena %q does not provide enough valid spawn points for match %s",
+				session.ArenaId,
+				session.Id
+			)
+		)
 		self:_abortStartingSession(session)
 		return false
 	end
@@ -384,7 +394,11 @@ function MatchCoordinator:_finishSession(
 	return true
 end
 
-function MatchCoordinator:FinishMatch(winner: Player?, loser: Player?, reason: MatchEndReason): boolean
+function MatchCoordinator:FinishMatch(
+	winner: Player?,
+	loser: Player?,
+	reason: MatchEndReason
+): boolean
 	local anchor = winner or loser
 	if anchor == nil then
 		return false

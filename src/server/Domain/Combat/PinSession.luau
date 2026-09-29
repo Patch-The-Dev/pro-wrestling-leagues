@@ -2,9 +2,9 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local Trove = require(ReplicatedStorage.Packages.Trove)
-local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 
 local PinSession = {}
 PinSession.__index = PinSession
@@ -93,7 +93,10 @@ function PinSession:AwaitPromptExpiry()
 		return Promise.reject("Pin prompt has not been scheduled")
 	end
 
-	local delaySeconds = math.max(0, self._targetTime - workspace:GetServerTimeNow() + CombatConfig.Pin.InputWindowSeconds)
+	local delaySeconds = math.max(
+		0,
+		self._targetTime - workspace:GetServerTimeNow() + CombatConfig.Pin.InputWindowSeconds
+	)
 	local timer = Promise.delay(delaySeconds)
 	self._trove:AddPromise(timer)
 	return timer

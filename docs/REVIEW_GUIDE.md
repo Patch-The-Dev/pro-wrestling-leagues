@@ -1,6 +1,6 @@
 # Review guide
 
-This repository is a portfolio refactor of a Studio-first Roblox project. The most useful review path is:
+This repository presents the Luau application code for Pro Wrestling Leagues. The most useful review path is:
 
 1. `src/server/Services/CombatService.luau` for the network/application boundary.
 2. `src/server/Application/CombatCoordinator.luau` and `StrikeResolver.luau` for combat orchestration.
@@ -22,6 +22,6 @@ This repository is a portfolio refactor of a Studio-first Roblox project. The mo
 - Runtime world objects use tags instead of copied scripts.
 - Configuration and player-data schemas are separate from implementation.
 
-## Scope
+## Play and assets
 
-The original place contained Studio-managed arenas, animations, UI, sounds, tools, and cosmetic assets. This repository focuses on application code and documents the runtime asset contract separately. It is not intended to reproduce the original place file byte for byte.
+The [live Roblox game](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES) and [project page with footage](https://www.patchthedev.com/work/pro-wrestling-leagues) show the player experience. [Runtime assets](RUNTIME_ASSETS.md) explains how the application code binds to arenas, weapons, animations, UI, sounds, and entrance effects.

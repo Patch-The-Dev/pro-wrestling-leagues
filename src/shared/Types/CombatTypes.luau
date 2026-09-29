@@ -29,7 +29,13 @@ export type CombatAction =
 
 export type GrappleDirection = "Forward" | "Left" | "Backward" | "Right" | "Finisher"
 export type ResolvedActionName = CombatAction | "Reversal" | "WeaponAttack"
-export type MoveCategory = "Attack" | "RunningAttack" | "Grapple" | "RunningGrapple" | "TurnbuckleAttack" | "Taunt"
+export type MoveCategory =
+	"Attack"
+	| "RunningAttack"
+	| "Grapple"
+	| "RunningGrapple"
+	| "TurnbuckleAttack"
+	| "Taunt"
 
 export type CombatSnapshot = {
 	State: CombatState,

@@ -3,12 +3,12 @@
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Trove = require(ReplicatedStorage.Packages.Trove)
 local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local CombatantModule = require(script.Parent.Combatant)
 local GrappleSessionModule = require(script.Parent.GrappleSession)
 local RecoverySchedulerModule = require(script.Parent.RecoveryScheduler)
+local Trove = require(ReplicatedStorage.Packages.Trove)
 
 type DamageSpec = CombatTypes.DamageSpec
 type ResolvedAction = CombatTypes.ResolvedAction

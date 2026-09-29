@@ -2,11 +2,11 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local AnimationSystem = require(script.Parent.Parent.Systems.AnimationSystem)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Trove = require(ReplicatedStorage.Packages.Trove)
-local AnimationSystem = require(script.Parent.Parent.Systems.AnimationSystem)
 
 local CombatController = Knit.CreateController({
 	Name = "CombatController",

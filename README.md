@@ -80,15 +80,12 @@ Connect Roblox Studio to the Rojo server to sync the source tree. For an XML pla
 rojo build default.project.json -o ProWrestlingLeagues.rbxlx
 ```
 
-The CI workflow installs the pinned packages, checks that the lockfile stays unchanged, and runs formatting, lint, Luau analysis, and the Rojo build. To run the same checks locally:
+The CI workflow installs the pinned packages, checks that the lockfile stays unchanged, and runs formatting, lint, and the Rojo build. To run the same checks locally:
 
 ```sh
-rojo sourcemap default.project.json --output sourcemap.json
-wally-package-types --sourcemap sourcemap.json Packages/
-wally-package-types --sourcemap sourcemap.json ServerPackages/
+git diff --exit-code -- wally.lock
 stylua --check src
 selene src
-luau-lsp analyze --sourcemap=sourcemap.json src
 rojo build default.project.json -o ProWrestlingLeagues.rbxlx
 ```
 

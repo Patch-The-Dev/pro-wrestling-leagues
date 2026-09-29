@@ -2,8 +2,8 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local CombatRules = require(script.Parent.CombatRules)
+local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local CombatantModule = require(script.Parent.Combatant)
 
 type CombatAction = CombatTypes.CombatAction
@@ -32,7 +32,11 @@ function ActionBudget.new(): ActionBudget
 	}, ActionBudget)
 end
 
-function ActionBudget:Validate(player: Player, combatant: Combatant, action: CombatAction): (boolean, string?)
+function ActionBudget:Validate(
+	player: Player,
+	combatant: Combatant,
+	action: CombatAction
+): (boolean, string?)
 	if not CombatRules.CanStartAction(combatant:GetState(), action) then
 		return false, "Action is not valid in the current state"
 	end

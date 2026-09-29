@@ -3,13 +3,13 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Knit = require(ReplicatedStorage.Packages.Knit)
-local Trove = require(ReplicatedStorage.Packages.Trove)
-local CustomizationConfig = require(ReplicatedStorage.Shared.Config.CustomizationConfig)
-local MovesConfig = require(ReplicatedStorage.Shared.Config.MovesConfig)
 local Contracts = require(ReplicatedStorage.Shared.Network.Contracts)
-local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
 local CustomizationAdapter = require(script.Parent.Parent.Adapters.CustomizationAdapter)
+local CustomizationConfig = require(ReplicatedStorage.Shared.Config.CustomizationConfig)
+local Knit = require(ReplicatedStorage.Packages.Knit)
+local MovesConfig = require(ReplicatedStorage.Shared.Config.MovesConfig)
+local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
+local Trove = require(ReplicatedStorage.Packages.Trove)
 
 type AppearanceAssetField = PlayerDataTypes.AppearanceAssetField
 type MoveLoadout = PlayerDataTypes.MoveLoadout
@@ -51,7 +51,11 @@ local function setMove(loadout: MoveLoadout, slot: MoveSlot, moveId: string)
 	end
 end
 
-local function setAppearanceAsset(appearance: PlayerDataTypes.Appearance, field: AppearanceAssetField, assetId: string?)
+local function setAppearanceAsset(
+	appearance: PlayerDataTypes.Appearance,
+	field: AppearanceAssetField,
+	assetId: string?
+)
 	if field == "HairId" then
 		appearance.HairId = assetId
 	elseif field == "FaceId" then
@@ -105,7 +109,11 @@ function CustomizationService:_applyAppearance(player: Player, character: Model)
 	CustomizationAdapter.Apply(character, data.Wrestler.Appearance)
 end
 
-function CustomizationService:EquipMove(player: Player, slot: MoveSlot, moveId: string): (boolean, string?)
+function CustomizationService:EquipMove(
+	player: Player,
+	slot: MoveSlot,
+	moveId: string
+): (boolean, string?)
 	local expectedCategory = CustomizationConfig.MoveSlots[slot]
 	local move = MovesConfig.Get(moveId)
 	if expectedCategory == nil or move == nil or move.Category ~= expectedCategory then
@@ -174,7 +182,11 @@ function CustomizationService.Client:EquipMove(player: Player, rawSlot: unknown,
 	return self.Server:EquipMove(player, slot, rawMoveId :: string)
 end
 
-function CustomizationService.Client:SetAppearanceAsset(player: Player, rawField: unknown, rawAssetId: unknown)
+function CustomizationService.Client:SetAppearanceAsset(
+	player: Player,
+	rawField: unknown,
+	rawAssetId: unknown
+)
 	if not self.Server._requestGate:Allow(player, "Customization") then
 		return false, "Too many requests"
 	end

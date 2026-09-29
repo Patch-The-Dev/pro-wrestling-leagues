@@ -3,9 +3,9 @@
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local EntranceConfig = require(ReplicatedStorage.Shared.Config.EntranceConfig)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local Trove = require(ReplicatedStorage.Packages.Trove)
-local EntranceConfig = require(ReplicatedStorage.Shared.Config.EntranceConfig)
 
 local PyroSystem = {}
 PyroSystem.__index = PyroSystem
@@ -23,7 +23,9 @@ local function resolveArena(arenaId: string): Model?
 	for _, instance in CollectionService:GetTagged("WrestlingArena") do
 		if instance:IsA("Model") then
 			local configuredId = instance:GetAttribute("ArenaId")
-			local resolvedId = if type(configuredId) == "string" and configuredId ~= "" then configuredId else instance.Name
+			local resolvedId = if type(configuredId) == "string" and configuredId ~= ""
+				then configuredId
+				else instance.Name
 			if resolvedId == arenaId then
 				return instance
 			end
@@ -74,7 +76,11 @@ function PyroSystem:Play(presetName: string, arenaId: string?)
 	self:_disableActive()
 
 	local preset = EntranceConfig.PyroPresets[presetName]
-	if preset == nil or arenaId == nil or (preset.BurstCount <= 0 and preset.ContinuousSeconds <= 0) then
+	if
+		preset == nil
+		or arenaId == nil
+		or (preset.BurstCount <= 0 and preset.ContinuousSeconds <= 0)
+	then
 		return
 	end
 

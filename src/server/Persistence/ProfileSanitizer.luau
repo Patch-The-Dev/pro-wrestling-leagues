@@ -2,10 +2,10 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local CustomizationConfig = require(ReplicatedStorage.Shared.Config.CustomizationConfig)
 local EntranceConfig = require(ReplicatedStorage.Shared.Config.EntranceConfig)
 local MovesConfig = require(ReplicatedStorage.Shared.Config.MovesConfig)
-local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 
 local ProfileTemplate = require(script.Parent.ProfileTemplate)
 
@@ -97,27 +97,28 @@ function ProfileSanitizer.Apply(data: Dictionary)
 
 	local currencies = ensureDictionary(data, "Currencies")
 	currencies.Cash = finiteNonNegative(currencies.Cash, ProfileTemplate.Currencies.Cash, true)
-	currencies.Tickets = finiteNonNegative(currencies.Tickets, ProfileTemplate.Currencies.Tickets, true)
+	currencies.Tickets =
+		finiteNonNegative(currencies.Tickets, ProfileTemplate.Currencies.Tickets, true)
 
 	local progression = ensureDictionary(data, "Progression")
-	progression.Experience = finiteNonNegative(
-		progression.Experience,
-		ProfileTemplate.Progression.Experience,
-		true
-	)
+	progression.Experience =
+		finiteNonNegative(progression.Experience, ProfileTemplate.Progression.Experience, true)
 	progression.Fame = finiteNonNegative(progression.Fame, ProfileTemplate.Progression.Fame, true)
 
 	local statistics = ensureDictionary(data, "Statistics")
 	statistics.Wins = finiteNonNegative(statistics.Wins, ProfileTemplate.Statistics.Wins, true)
-	statistics.Losses = finiteNonNegative(statistics.Losses, ProfileTemplate.Statistics.Losses, true)
+	statistics.Losses =
+		finiteNonNegative(statistics.Losses, ProfileTemplate.Statistics.Losses, true)
 
 	local wrestler = ensureDictionary(data, "Wrestler")
-	wrestler.DisplayName = if type(wrestler.DisplayName) == "string" and #wrestler.DisplayName <= 50
+	wrestler.DisplayName = if type(wrestler.DisplayName) == "string"
+			and #wrestler.DisplayName <= 50
 		then wrestler.DisplayName
 		else ProfileTemplate.Wrestler.DisplayName
 
 	local appearance = ensureDictionary(wrestler, "Appearance")
-	appearance.SkinTone = validSkinTone(appearance.SkinTone, ProfileTemplate.Wrestler.Appearance.SkinTone)
+	appearance.SkinTone =
+		validSkinTone(appearance.SkinTone, ProfileTemplate.Wrestler.Appearance.SkinTone)
 	appearance.HairId = optionalAssetId(appearance.HairId)
 	appearance.FaceId = optionalAssetId(appearance.FaceId)
 	appearance.ShirtId = optionalAssetId(appearance.ShirtId)
@@ -126,7 +127,7 @@ function ProfileSanitizer.Apply(data: Dictionary)
 	local accessories = appearance.Accessories
 	local sanitizedAccessories: { string } = {}
 	if type(accessories) == "table" then
-		for _, value in (accessories :: { unknown }) do
+		for _, value in accessories :: { unknown } do
 			local assetId = optionalAssetId(value)
 			if assetId ~= nil and #sanitizedAccessories < 20 then
 				table.insert(sanitizedAccessories, assetId)
@@ -149,8 +150,20 @@ function ProfileSanitizer.Apply(data: Dictionary)
 	sanitizeMove(moves, unlockedMoves, "Attack2", "Attack", defaults.Attack2)
 	sanitizeMove(moves, unlockedMoves, "Attack3", "Attack", defaults.Attack3)
 	sanitizeMove(moves, unlockedMoves, "RunningAttack", "RunningAttack", defaults.RunningAttack)
-	sanitizeMove(moves, unlockedMoves, "TurnbuckleAttack", "TurnbuckleAttack", defaults.TurnbuckleAttack)
-	sanitizeMove(moves, unlockedMoves, "RunningGrappleMove", "RunningGrapple", defaults.RunningGrappleMove)
+	sanitizeMove(
+		moves,
+		unlockedMoves,
+		"TurnbuckleAttack",
+		"TurnbuckleAttack",
+		defaults.TurnbuckleAttack
+	)
+	sanitizeMove(
+		moves,
+		unlockedMoves,
+		"RunningGrappleMove",
+		"RunningGrapple",
+		defaults.RunningGrappleMove
+	)
 	sanitizeMove(moves, unlockedMoves, "GrappleForward", "Grapple", defaults.GrappleForward)
 	sanitizeMove(moves, unlockedMoves, "GrappleLeft", "Grapple", defaults.GrappleLeft)
 	sanitizeMove(moves, unlockedMoves, "GrappleBackward", "Grapple", defaults.GrappleBackward)
@@ -161,11 +174,13 @@ function ProfileSanitizer.Apply(data: Dictionary)
 	local entrance = ensureDictionary(data, "Entrance")
 	entrance.MusicId = optionalAssetId(entrance.MusicId)
 	local pyroPreset = entrance.PyroPreset
-	entrance.PyroPreset = if type(pyroPreset) == "string" and EntranceConfig.PyroPresets[pyroPreset] ~= nil
+	entrance.PyroPreset = if type(pyroPreset) == "string"
+			and EntranceConfig.PyroPresets[pyroPreset] ~= nil
 		then pyroPreset
 		else ProfileTemplate.Entrance.PyroPreset
 	local lightingPreset = entrance.LightingPreset
-	entrance.LightingPreset = if type(lightingPreset) == "string" and EntranceConfig.LightingPresets[lightingPreset] ~= nil
+	entrance.LightingPreset = if type(lightingPreset) == "string"
+			and EntranceConfig.LightingPresets[lightingPreset] ~= nil
 		then lightingPreset
 		else ProfileTemplate.Entrance.LightingPreset
 end

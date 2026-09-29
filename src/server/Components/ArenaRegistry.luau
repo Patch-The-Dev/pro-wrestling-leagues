@@ -25,7 +25,9 @@ export type ArenaRegistry = typeof(setmetatable(
 
 local function resolveArenaId(instance: Model): string
 	local configuredId = instance:GetAttribute("ArenaId")
-	return if type(configuredId) == "string" and configuredId ~= "" then configuredId else instance.Name
+	return if type(configuredId) == "string" and configuredId ~= ""
+		then configuredId
+		else instance.Name
 end
 
 local function getRequiredPlayers(arena: Model): number?
@@ -47,12 +49,18 @@ function ArenaRegistry.new(): ArenaRegistry
 		self:Add(instance)
 	end
 
-	self._trove:Connect(CollectionService:GetInstanceAddedSignal("WrestlingArena"), function(instance)
-		self:Add(instance)
-	end)
-	self._trove:Connect(CollectionService:GetInstanceRemovedSignal("WrestlingArena"), function(instance)
-		self:Remove(instance)
-	end)
+	self._trove:Connect(
+		CollectionService:GetInstanceAddedSignal("WrestlingArena"),
+		function(instance)
+			self:Add(instance)
+		end
+	)
+	self._trove:Connect(
+		CollectionService:GetInstanceRemovedSignal("WrestlingArena"),
+		function(instance)
+			self:Remove(instance)
+		end
+	)
 
 	return self
 end
@@ -65,7 +73,12 @@ function ArenaRegistry:Add(instance: Instance)
 	local arenaId = resolveArenaId(instance)
 	local existing = self._arenas[arenaId]
 	if existing ~= nil and existing ~= instance then
-		warn(string.format("Duplicate WrestlingArena id %q. Keeping the first registered arena.", arenaId))
+		warn(
+			string.format(
+				"Duplicate WrestlingArena id %q. Keeping the first registered arena.",
+				arenaId
+			)
+		)
 		return
 	end
 
@@ -108,8 +121,7 @@ function ArenaRegistry:GetSpawnCFrames(arenaId: string): { CFrame }
 			local nameIndex = tonumber(child.Name)
 			local index = if type(configuredIndex) == "number"
 				then configuredIndex
-				elseif nameIndex ~= nil
-				then nameIndex
+				elseif nameIndex ~= nil then nameIndex
 				else math.huge
 
 			table.insert(spawnPoints, {
@@ -148,7 +160,11 @@ function ArenaRegistry:_canHost(arenaId: string, playerCount: number): boolean
 	return #self:GetSpawnCFrames(arenaId) >= playerCount
 end
 
-function ArenaRegistry:Reserve(matchId: string, playerCount: number, preferredArenaId: string?): string?
+function ArenaRegistry:Reserve(
+	matchId: string,
+	playerCount: number,
+	preferredArenaId: string?
+): string?
 	if preferredArenaId ~= nil and self:_canHost(preferredArenaId, playerCount) then
 		self._reservations[preferredArenaId] = matchId
 		return preferredArenaId

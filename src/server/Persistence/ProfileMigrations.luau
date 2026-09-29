@@ -25,7 +25,12 @@ local function ensureDictionary(parent: Dictionary, key: string): Dictionary
 	return created
 end
 
-local function moveLegacyField(source: Dictionary, sourceKey: string, destination: Dictionary, destinationKey: string)
+local function moveLegacyField(
+	source: Dictionary,
+	sourceKey: string,
+	destination: Dictionary,
+	destinationKey: string
+)
 	local value = source[sourceKey]
 	if type(value) == "string" and value ~= "" and destination[destinationKey] == nil then
 		destination[destinationKey] = value
@@ -87,17 +92,19 @@ local MIGRATIONS: { [number]: Migration } = {
 function ProfileMigrations.Apply(data: Dictionary): number
 	local rawVersion = data.SchemaVersion
 	local version = if type(rawVersion) == "number"
-		and rawVersion == rawVersion
-		and rawVersion ~= math.huge
-		and rawVersion ~= -math.huge
+			and rawVersion == rawVersion
+			and rawVersion ~= math.huge
+			and rawVersion ~= -math.huge
 		then math.max(1, math.floor(rawVersion))
 		else 1
 	if version > CURRENT_SCHEMA_VERSION then
-		error(string.format(
-			"Player data schema %d is newer than supported schema %d",
-			version,
-			CURRENT_SCHEMA_VERSION
-		))
+		error(
+			string.format(
+				"Player data schema %d is newer than supported schema %d",
+				version,
+				CURRENT_SCHEMA_VERSION
+			)
+		)
 	end
 
 	while version < CURRENT_SCHEMA_VERSION do

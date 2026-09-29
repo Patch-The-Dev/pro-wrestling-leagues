@@ -18,7 +18,10 @@ export type StateMachine = typeof(setmetatable(
 	StateMachine
 ))
 
-function StateMachine.new(initialState: string, allowedTransitions: { [string]: { [string]: boolean } }): StateMachine
+function StateMachine.new(
+	initialState: string,
+	allowedTransitions: { [string]: { [string]: boolean } }
+): StateMachine
 	return setmetatable({
 		_state = initialState,
 		_allowed = allowedTransitions,

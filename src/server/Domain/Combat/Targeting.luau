@@ -7,7 +7,11 @@ local function getRoot(character: Model): BasePart?
 	return if root and root:IsA("BasePart") then root else nil
 end
 
-local function hasLineOfSight(attackerCharacter: Model, targetCharacter: Model, offset: Vector3): boolean
+local function hasLineOfSight(
+	attackerCharacter: Model,
+	targetCharacter: Model,
+	offset: Vector3
+): boolean
 	local attackerRoot = getRoot(attackerCharacter)
 	if attackerRoot == nil then
 		return false
@@ -44,15 +48,22 @@ function Targeting.FindNearestOpponent(
 	for _, candidate in candidates do
 		if candidate ~= attacker then
 			local candidateCharacter = candidate.Character
-			local candidateRoot = if candidateCharacter ~= nil then getRoot(candidateCharacter) else nil
-			local humanoid = if candidateCharacter ~= nil then candidateCharacter:FindFirstChildOfClass("Humanoid") else nil
+			local candidateRoot = if candidateCharacter ~= nil
+				then getRoot(candidateCharacter)
+				else nil
+			local humanoid = if candidateCharacter ~= nil
+				then candidateCharacter:FindFirstChildOfClass("Humanoid")
+				else nil
 
 			if candidateRoot ~= nil and humanoid ~= nil and humanoid.Health > 0 then
 				local offset = candidateRoot.Position - attackerRoot.Position
 				local distance = offset.Magnitude
 				if distance > 0 and distance <= bestDistance then
 					local facingDot = attackerRoot.CFrame.LookVector:Dot(offset.Unit)
-					if facingDot >= minimumFacingDot and hasLineOfSight(attackerCharacter, candidateCharacter, offset) then
+					if
+						facingDot >= minimumFacingDot
+						and hasLineOfSight(attackerCharacter, candidateCharacter, offset)
+					then
 						bestDistance = distance
 						bestPlayer = candidate
 					end

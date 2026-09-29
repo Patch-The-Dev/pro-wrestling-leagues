@@ -3,9 +3,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Trove = require(ReplicatedStorage.Packages.Trove)
-local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 
 type MatchUpdate = NetworkTypes.MatchUpdate
 

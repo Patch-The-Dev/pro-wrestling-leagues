@@ -4,11 +4,11 @@ local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Knit = require(ReplicatedStorage.Packages.Knit)
-local Trove = require(ReplicatedStorage.Packages.Trove)
 local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local Contracts = require(ReplicatedStorage.Shared.Network.Contracts)
+local Knit = require(ReplicatedStorage.Packages.Knit)
 local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
+local Trove = require(ReplicatedStorage.Packages.Trove)
 local WeaponComponentModule = require(script.Parent.Parent.Components.WeaponComponent)
 
 type WeaponAction = NetworkTypes.WeaponAction
@@ -38,12 +38,18 @@ function WeaponService:KnitStart()
 	for _, instance in CollectionService:GetTagged("WrestlingWeapon") do
 		self:_register(instance)
 	end
-	self._trove:Connect(CollectionService:GetInstanceAddedSignal("WrestlingWeapon"), function(instance)
-		self:_register(instance)
-	end)
-	self._trove:Connect(CollectionService:GetInstanceRemovedSignal("WrestlingWeapon"), function(instance)
-		self:_unregister(instance)
-	end)
+	self._trove:Connect(
+		CollectionService:GetInstanceAddedSignal("WrestlingWeapon"),
+		function(instance)
+			self:_register(instance)
+		end
+	)
+	self._trove:Connect(
+		CollectionService:GetInstanceRemovedSignal("WrestlingWeapon"),
+		function(instance)
+			self:_unregister(instance)
+		end
+	)
 end
 
 function WeaponService:_register(instance: Instance)
@@ -108,7 +114,11 @@ function WeaponService:_isNearWeapon(player: Player, component: WeaponComponent)
 	return (root.Position - handle.Position).Magnitude <= CombatConfig.Targeting.WeaponRange
 end
 
-function WeaponService:RequestAction(player: Player, networkId: string, action: WeaponAction): (boolean, string?)
+function WeaponService:RequestAction(
+	player: Player,
+	networkId: string,
+	action: WeaponAction
+): (boolean, string?)
 	local component = self._weaponsByNetworkId[networkId]
 	if component == nil then
 		return false, "Unknown weapon"
@@ -144,7 +154,13 @@ function WeaponService:RequestAction(player: Player, networkId: string, action: 
 		if not component:CanUse() then
 			return false, "Weapon is not ready"
 		end
-		if not self._combatService:ApplyWeaponAttack(player, component:GetDamageSpec(), component.DefinitionId) then
+		if
+			not self._combatService:ApplyWeaponAttack(
+				player,
+				component:GetDamageSpec(),
+				component.DefinitionId
+			)
+		then
 			return false, "No valid target"
 		end
 		if not component:ConsumeUse() then
@@ -156,7 +172,11 @@ function WeaponService:RequestAction(player: Player, networkId: string, action: 
 	return true, nil
 end
 
-function WeaponService.Client:RequestAction(player: Player, rawNetworkId: unknown, rawAction: unknown)
+function WeaponService.Client:RequestAction(
+	player: Player,
+	rawNetworkId: unknown,
+	rawAction: unknown
+)
 	if not self.Server._requestGate:Allow(player, "Interaction") then
 		return false, "Too many requests"
 	end

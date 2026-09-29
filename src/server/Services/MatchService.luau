@@ -3,10 +3,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local MatchCoordinatorModule = require(script.Parent.Parent.Application.MatchCoordinator)
+local MatchTypes = require(ReplicatedStorage.Shared.Types.MatchTypes)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Trove = require(ReplicatedStorage.Packages.Trove)
-local MatchTypes = require(ReplicatedStorage.Shared.Types.MatchTypes)
-local MatchCoordinatorModule = require(script.Parent.Parent.Application.MatchCoordinator)
 
 type MatchCoordinator = MatchCoordinatorModule.MatchCoordinator
 type MatchEndReason = MatchTypes.MatchEndReason

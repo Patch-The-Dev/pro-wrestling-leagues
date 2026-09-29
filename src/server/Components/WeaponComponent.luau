@@ -33,7 +33,9 @@ function WeaponComponent.new(tool: Tool, networkId: string): WeaponComponent
 	local useCooldown = tool:GetAttribute("UseCooldown")
 	local definitionId = tool:GetAttribute("WeaponId")
 
-	local resolvedMaxDurability = if type(maxDurability) == "number" then math.max(1, math.floor(maxDurability)) else 5
+	local resolvedMaxDurability = if type(maxDurability) == "number"
+		then math.max(1, math.floor(maxDurability))
+		else 5
 	local resolvedDurability = if type(initialDurability) == "number"
 		then math.clamp(math.floor(initialDurability), 0, resolvedMaxDurability)
 		else resolvedMaxDurability
@@ -41,7 +43,9 @@ function WeaponComponent.new(tool: Tool, networkId: string): WeaponComponent
 	local self = setmetatable({
 		Instance = tool,
 		NetworkId = networkId,
-		DefinitionId = if type(definitionId) == "string" and definitionId ~= "" then definitionId else tool.Name,
+		DefinitionId = if type(definitionId) == "string" and definitionId ~= ""
+			then definitionId
+			else tool.Name,
 		MaxDurability = resolvedMaxDurability,
 		Durability = resolvedDurability,
 		Damage = if type(damage) == "number" then math.max(0, damage) else 8,
@@ -94,7 +98,9 @@ function WeaponComponent:GetWorldParent(): Instance?
 end
 
 function WeaponComponent:IsAvailableForPickup(): boolean
-	return self.Durability > 0 and self.Instance:IsDescendantOf(workspace) and self:GetOwner() == nil
+	return self.Durability > 0
+		and self.Instance:IsDescendantOf(workspace)
+		and self:GetOwner() == nil
 end
 
 function WeaponComponent:CanUse(): boolean
@@ -123,7 +129,10 @@ function WeaponComponent:Drop(player: Player): boolean
 	local character = player.Character
 	local root = if character ~= nil then character:FindFirstChild("HumanoidRootPart") else nil
 	local worldParent = self._worldParent
-	if worldParent == nil or (worldParent ~= workspace and not worldParent:IsDescendantOf(workspace)) then
+	if
+		worldParent == nil
+		or (worldParent ~= workspace and not worldParent:IsDescendantOf(workspace))
+	then
 		worldParent = workspace
 	end
 	self.Instance.Parent = worldParent

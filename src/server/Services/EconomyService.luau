@@ -2,9 +2,9 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Knit = require(ReplicatedStorage.Packages.Knit)
-local EconomyConfig = require(ReplicatedStorage.Shared.Config.EconomyConfig)
 local Contracts = require(ReplicatedStorage.Shared.Network.Contracts)
+local EconomyConfig = require(ReplicatedStorage.Shared.Config.EconomyConfig)
+local Knit = require(ReplicatedStorage.Packages.Knit)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
 local RewardPolicy = require(script.Parent.Parent.Domain.Economy.RewardPolicy)
 

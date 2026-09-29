@@ -3,9 +3,9 @@
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local EntranceConfig = require(ReplicatedStorage.Shared.Config.EntranceConfig)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local Trove = require(ReplicatedStorage.Packages.Trove)
-local EntranceConfig = require(ReplicatedStorage.Shared.Config.EntranceConfig)
 
 type LightingSnapshot = {
 	Brightness: number,

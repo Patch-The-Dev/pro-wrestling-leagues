@@ -2,10 +2,10 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Trove = require(ReplicatedStorage.Packages.Trove)
 local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
-local StateMachine = require(ReplicatedStorage.Shared.State.StateMachine)
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
+local StateMachine = require(ReplicatedStorage.Shared.State.StateMachine)
+local Trove = require(ReplicatedStorage.Packages.Trove)
 
 type CombatState = CombatTypes.CombatState
 type CombatSnapshot = CombatTypes.CombatSnapshot
@@ -44,7 +44,15 @@ local ALLOWED_TRANSITIONS: { [string]: { [string]: boolean } } = {
 		Grounded = true,
 		Dead = true,
 	},
-	Running = { Roaming = true, Attacking = true, Grappling = true, PerformingMove = true, Stunned = true, Grounded = true, Dead = true },
+	Running = {
+		Roaming = true,
+		Attacking = true,
+		Grappling = true,
+		PerformingMove = true,
+		Stunned = true,
+		Grounded = true,
+		Dead = true,
+	},
 	Stunned = { Roaming = true, Grounded = true, PerformingMove = true, Dead = true },
 	Grounded = { StandingUp = true, Pinned = true, Dead = true },
 	Falling = { Grounded = true, Roaming = true, Dead = true },

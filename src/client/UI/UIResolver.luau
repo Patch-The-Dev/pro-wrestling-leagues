@@ -17,7 +17,10 @@ end
 
 function UIResolver.SetText(path: { string }, text: string)
 	local instance = UIResolver.Find(path)
-	if instance and (instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox")) then
+	if
+		instance
+		and (instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox"))
+	then
 		instance.Text = text
 	end
 end

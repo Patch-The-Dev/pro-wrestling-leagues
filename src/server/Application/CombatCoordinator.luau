@@ -4,17 +4,17 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local Trove = require(ReplicatedStorage.Packages.Trove)
 local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local MatchTypes = require(ReplicatedStorage.Shared.Types.MatchTypes)
 local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
+local Trove = require(ReplicatedStorage.Packages.Trove)
 
-local CharacterAdapter = require(script.Parent.Parent.Adapters.CharacterAdapter)
 local ActionBudgetModule = require(script.Parent.Parent.Domain.Combat.ActionBudget)
-local CombatantModule = require(script.Parent.Parent.Domain.Combat.Combatant)
+local CharacterAdapter = require(script.Parent.Parent.Adapters.CharacterAdapter)
 local CombatRules = require(script.Parent.Parent.Domain.Combat.CombatRules)
+local CombatantModule = require(script.Parent.Parent.Domain.Combat.Combatant)
 local GrappleCoordinatorModule = require(script.Parent.Parent.Domain.Combat.GrappleCoordinator)
 local PinCoordinatorModule = require(script.Parent.Parent.Domain.Combat.PinCoordinator)
 local RecoverySchedulerModule = require(script.Parent.Parent.Domain.Combat.RecoveryScheduler)
@@ -44,7 +44,12 @@ type MatchSource = {
 	IsMatchActiveFor: (self: MatchSource, player: Player) -> boolean,
 	GetOpponents: (self: MatchSource, player: Player) -> { Player },
 	FinishForKnockout: (self: MatchSource, loser: Player) -> (),
-	FinishMatch: (self: MatchSource, winner: Player?, loser: Player?, reason: MatchEndReason) -> boolean,
+	FinishMatch: (
+		self: MatchSource,
+		winner: Player?,
+		loser: Player?,
+		reason: MatchEndReason
+	) -> boolean,
 }
 
 type EmitAction = (recipient: Player, event: ResolvedAction) -> ()
@@ -88,14 +93,9 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 	local recovery = RecoverySchedulerModule.new(function(player)
 		return combatants[player]
 	end)
-	local grapples = GrappleCoordinatorModule.new(
-		function(player)
-			return combatants[player]
-		end,
-		recovery,
-		dependencies.EmitAction,
-		dependencies.EmitGrappleWindow
-	)
+	local grapples = GrappleCoordinatorModule.new(function(player)
+		return combatants[player]
+	end, recovery, dependencies.EmitAction, dependencies.EmitGrappleWindow)
 	local pins = PinCoordinatorModule.new(
 		function(player)
 			return combatants[player]
@@ -178,7 +178,8 @@ function CombatCoordinator:_bindCharacter(player: Player, character: Model)
 	self._pins:CancelForPlayer(player)
 	self:_removeCombatant(player)
 
-	local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 5)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+		or character:WaitForChild("Humanoid", 5)
 	if humanoid == nil or not humanoid:IsA("Humanoid") then
 		return
 	end
@@ -226,7 +227,10 @@ function CombatCoordinator:_findTarget(player: Player, range: number): Player?
 	)
 end
 
-function CombatCoordinator:_validateBase(player: Player, action: CombatAction): (Combatant?, string?)
+function CombatCoordinator:_validateBase(
+	player: Player,
+	action: CombatAction
+): (Combatant?, string?)
 	if not self._matchSource:IsMatchActiveFor(player) then
 		return nil, "No active match"
 	end
@@ -267,7 +271,11 @@ function CombatCoordinator:EnterTurnbuckle(player: Player, turnbuckle: BasePart)
 	end
 
 	local combatant = self._combatants[player]
-	if combatant == nil or combatant:GetState() ~= "Roaming" or not combatant:CanSetState("ClimbingTurnbuckle") then
+	if
+		combatant == nil
+		or combatant:GetState() ~= "Roaming"
+		or not combatant:CanSetState("ClimbingTurnbuckle")
+	then
 		return false
 	end
 
@@ -305,7 +313,11 @@ function CombatCoordinator:_requestStrike(player: Player, action: CombatAction):
 	return self._strikes:Request(player, action, combatant)
 end
 
-function CombatCoordinator:RequestGrapple(player: Player, direction: GrappleDirection, running: boolean): (boolean, string?)
+function CombatCoordinator:RequestGrapple(
+	player: Player,
+	direction: GrappleDirection,
+	running: boolean
+): (boolean, string?)
 	local action: CombatAction = if running then "RunningGrapple" else "Grapple"
 	if running and not self:_isCharacterRunning(player) then
 		return false, "Running grapple requires server-observed movement"
@@ -356,7 +368,9 @@ function CombatCoordinator:RequestGrapple(player: Player, direction: GrappleDire
 	attacker:SetState("Grappling")
 	victim:SetState("Stunned")
 
-	if not self._grapples:Start(player, targetPlayer, action, moveId, damage, duration, isFinisher) then
+	if
+		not self._grapples:Start(player, targetPlayer, action, moveId, damage, duration, isFinisher)
+	then
 		attacker:SetState("Roaming")
 		victim:SetState("Roaming")
 		self._budget:Rollback(player, attacker, action)
@@ -413,7 +427,10 @@ function CombatCoordinator:RequestAction(player: Player, action: CombatAction): 
 			return false, "Action resources changed before commit"
 		end
 		combatant:SetState("Running")
-		CharacterAdapter.ApplyBackwardVelocity(combatant.Character, CombatConfig.Movement.DashBackwardSpeed)
+		CharacterAdapter.ApplyBackwardVelocity(
+			combatant.Character,
+			CombatConfig.Movement.DashBackwardSpeed
+		)
 		self._emitAction(player, {
 			Action = "Dash",
 			AttackerUserId = player.UserId,
@@ -433,7 +450,11 @@ function CombatCoordinator:SubmitPinInput(player: Player, sessionId: string): bo
 	return self._pins:SubmitInput(player, sessionId)
 end
 
-function CombatCoordinator:ApplyWeaponAttack(player: Player, damage: DamageSpec, weaponId: string): boolean
+function CombatCoordinator:ApplyWeaponAttack(
+	player: Player,
+	damage: DamageSpec,
+	weaponId: string
+): boolean
 	if not self._matchSource:IsMatchActiveFor(player) then
 		return false
 	end

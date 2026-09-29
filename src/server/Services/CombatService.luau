@@ -2,10 +2,10 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
+local Contracts = require(ReplicatedStorage.Shared.Network.Contracts)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Trove = require(ReplicatedStorage.Packages.Trove)
-local Contracts = require(ReplicatedStorage.Shared.Network.Contracts)
-local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 
 local CombatCoordinatorModule = require(script.Parent.Parent.Application.CombatCoordinator)
 
@@ -75,7 +75,11 @@ function CombatService:LeaveTurnbuckle(player: Player)
 	self:_getCoordinator():LeaveTurnbuckle(player)
 end
 
-function CombatService:ApplyWeaponAttack(player: Player, damage: DamageSpec, weaponId: string): boolean
+function CombatService:ApplyWeaponAttack(
+	player: Player,
+	damage: DamageSpec,
+	weaponId: string
+): boolean
 	return self:_getCoordinator():ApplyWeaponAttack(player, damage, weaponId)
 end
 
@@ -83,7 +87,11 @@ function CombatService:RequestAction(player: Player, action: CombatAction): (boo
 	return self:_getCoordinator():RequestAction(player, action)
 end
 
-function CombatService:RequestGrapple(player: Player, direction: GrappleDirection, running: boolean): (boolean, string?)
+function CombatService:RequestGrapple(
+	player: Player,
+	direction: GrappleDirection,
+	running: boolean
+): (boolean, string?)
 	return self:_getCoordinator():RequestGrapple(player, direction, running)
 end
 
@@ -107,7 +115,11 @@ function CombatService.Client:RequestAction(player: Player, rawAction: unknown)
 	return self.Server:RequestAction(player, action)
 end
 
-function CombatService.Client:RequestGrapple(player: Player, rawDirection: unknown, rawRunning: unknown)
+function CombatService.Client:RequestGrapple(
+	player: Player,
+	rawDirection: unknown,
+	rawRunning: unknown
+)
 	if not self.Server._requestGate:Allow(player, "Combat") then
 		return false, "Too many requests"
 	end
@@ -120,14 +132,20 @@ function CombatService.Client:RequestGrapple(player: Player, rawDirection: unkno
 end
 
 function CombatService.Client:TryReverse(player: Player, rawSessionId: unknown)
-	if not self.Server._requestGate:Allow(player, "Combat") or not Contracts.IsSessionId(rawSessionId) then
+	if
+		not self.Server._requestGate:Allow(player, "Combat")
+		or not Contracts.IsSessionId(rawSessionId)
+	then
 		return false
 	end
 	return self.Server:TryReverse(player, rawSessionId :: string)
 end
 
 function CombatService.Client:SubmitPinInput(player: Player, rawSessionId: unknown)
-	if not self.Server._requestGate:Allow(player, "Combat") or not Contracts.IsSessionId(rawSessionId) then
+	if
+		not self.Server._requestGate:Allow(player, "Combat")
+		or not Contracts.IsSessionId(rawSessionId)
+	then
 		return false
 	end
 	return self.Server:SubmitPinInput(player, rawSessionId :: string)

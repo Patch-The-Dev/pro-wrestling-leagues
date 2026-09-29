@@ -2,9 +2,9 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local Trove = require(ReplicatedStorage.Packages.Trove)
-local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 
 local GrappleSession = {}
 GrappleSession.__index = GrappleSession

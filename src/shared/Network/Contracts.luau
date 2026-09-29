@@ -123,7 +123,12 @@ end
 
 function Contracts.IsOptionalAssetId(value: unknown): boolean
 	return value == nil
-		or (type(value) == "string" and #value > 0 and #value <= 32 and string.match(value, "^%d+$") ~= nil)
+		or (
+			type(value) == "string"
+			and #value > 0
+			and #value <= 32
+			and string.match(value, "^%d+$") ~= nil
+		)
 end
 
 return table.freeze(Contracts)

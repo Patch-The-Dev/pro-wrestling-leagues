@@ -3,8 +3,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
-local MovesConfig = require(ReplicatedStorage.Shared.Config.MovesConfig)
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
+local MovesConfig = require(ReplicatedStorage.Shared.Config.MovesConfig)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
 
 type CombatAction = CombatTypes.CombatAction
@@ -26,7 +26,12 @@ function CombatRules.GetCooldown(action: CombatAction): number
 	return COOLDOWNS[action]
 end
 
-function CombatRules.ResolveMoveId(data: PlayerData, action: CombatAction, sequence: number?, direction: GrappleDirection?): string?
+function CombatRules.ResolveMoveId(
+	data: PlayerData,
+	action: CombatAction,
+	sequence: number?,
+	direction: GrappleDirection?
+): string?
 	local moves = data.Wrestler.Moves
 
 	if action == "Attack" then

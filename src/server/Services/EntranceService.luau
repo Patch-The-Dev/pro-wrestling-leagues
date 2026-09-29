@@ -2,8 +2,8 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Knit = require(ReplicatedStorage.Packages.Knit)
 local EntranceConfig = require(ReplicatedStorage.Shared.Config.EntranceConfig)
+local Knit = require(ReplicatedStorage.Packages.Knit)
 local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 
 type EntranceCue = NetworkTypes.EntranceCue
@@ -40,7 +40,11 @@ end
 function EntranceService:PlayForPlayers(players: { Player }, arenaId: string)
 	local startsAt = workspace:GetServerTimeNow() + EntranceConfig.LeadInSeconds
 	for index, entrant in players do
-		local cue = self:_buildCue(entrant, startsAt + (index - 1) * EntranceConfig.EntrantSpacingSeconds, arenaId)
+		local cue = self:_buildCue(
+			entrant,
+			startsAt + (index - 1) * EntranceConfig.EntrantSpacingSeconds,
+			arenaId
+		)
 		if cue ~= nil then
 			for _, viewer in players do
 				self.Client.EntranceCue:Fire(viewer, cue)

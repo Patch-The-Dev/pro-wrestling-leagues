@@ -3,9 +3,9 @@
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Trove = require(ReplicatedStorage.Packages.Trove)
-local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 
 local TurnbuckleService = Knit.CreateService({
 	Name = "TurnbuckleService",
@@ -34,7 +34,10 @@ function TurnbuckleService:_findNearest(player: Player): BasePart?
 	local nearest: BasePart? = nil
 	local nearestDistance = CombatConfig.Targeting.TurnbuckleRange
 	for _, instance in CollectionService:GetTagged("Turnbuckle") do
-		if instance:IsA("BasePart") and self._matchService:IsInstanceInPlayerArena(player, instance) then
+		if
+			instance:IsA("BasePart")
+			and self._matchService:IsInstanceInPlayerArena(player, instance)
+		then
 			local distance = (root.Position - instance.Position).Magnitude
 			if distance <= nearestDistance then
 				nearest = instance

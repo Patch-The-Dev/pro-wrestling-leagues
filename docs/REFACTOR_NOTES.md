@@ -1,10 +1,8 @@
 # Refactor notes
 
-## Source audit
+## Source organization
 
-The Studio export contained 327 Luau scripts and about 63,000 lines. Exact-content analysis found 209 duplicate file instances beyond their originals. The largest sources of duplication were per-arena weapon handlers, announcer table handlers, turnbuckle interaction scripts, matchmaker displays, backup scripts, and copied default character animation scripts.
-
-The original implementation also mixed production code with tests and notes, embedded third-party libraries directly into game folders, relied on many direct RemoteEvents and RemoteFunctions, and concentrated major behavior in manager scripts above 1,000 lines.
+The repository organizes game logic into shared contracts, server services, application coordinators, focused domain modules, and client presentation. Runtime tags replace handlers copied into individual arenas, weapons, turnbuckles, and entrance assets. Wally manages third-party libraries outside the project-owned source tree.
 
 ## Preserved gameplay concepts
 
@@ -21,6 +19,6 @@ The refactor keeps the original game's main systems: matchmaking, entrances, thr
 - Persistence no longer updates UI or applies customization directly.
 - UI controllers do not mutate profile tables.
 
-## Compatibility
+## Asset integration
 
-This is a portfolio implementation, not a drop-in replacement for the original place. Runtime assets should be tagged and organized according to `docs/RUNTIME_ASSETS.md` before connecting the code to a place file.
+The [live game](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES) and [portfolio page](https://www.patchthedev.com/work/pro-wrestling-leagues) show the player-facing project. The code in this repository connects to Studio-authored presentation assets through the tags and attributes in [the runtime asset contract](RUNTIME_ASSETS.md).
