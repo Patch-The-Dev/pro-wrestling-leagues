@@ -1,12 +1,22 @@
 --!strict
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
+local EntranceConfig = require(ReplicatedStorage.Shared.Config.EntranceConfig)
+local MatchConfig = require(ReplicatedStorage.Shared.Config.MatchConfig)
 local MatchSession = require(ServerScriptService.Server.Domain.Match.MatchSession)
 
 return function()
 	describe("MatchSession", function()
 		local first = { UserId = 1 } :: any
 		local second = { UserId = 2 } :: any
+
+		it("leaves room for every entrance before combat begins", function()
+			local finalEntranceEndsAt = EntranceConfig.LeadInSeconds
+				+ (MatchConfig.MaximumPlayers - 1) * EntranceConfig.EntrantSpacingSeconds
+				+ math.max(EntranceConfig.CameraFocusSeconds, EntranceConfig.LightingHoldSeconds)
+			expect(MatchConfig.StartCountdownSeconds >= finalEntranceEndsAt).to.equal(true)
+		end)
 
 		it("does not start after a countdown is cancelled", function()
 			local session = MatchSession.new("match", "arena", { first, second })

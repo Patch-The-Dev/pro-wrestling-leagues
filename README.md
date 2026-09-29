@@ -1,5 +1,7 @@
 # Pro Wrestling Leagues
 
+[![Source checks](https://github.com/Patch-The-Dev/pro-wrestling-leagues/actions/workflows/ci.yml/badge.svg)](https://github.com/Patch-The-Dev/pro-wrestling-leagues/actions/workflows/ci.yml)
+
 **A Roblox wrestling game by PatchTheDev.** This repository presents its Luau application code as a Rojo project for technical review.
 
 [Play Pro Wrestling Leagues on Roblox](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES) · [View the project and gameplay footage](https://www.patchthedev.com/work/pro-wrestling-leagues) · [PatchTheDev portfolio](https://www.patchthedev.com)
@@ -28,6 +30,8 @@ Combat includes a three-hit strike chain, running attacks, directional grapples,
 The server also manages arena weapons and turnbuckle interactions. Weapon instances are tracked by identity and arena, with ownership, cooldown, and durability checks. CollectionService tags bind world behavior without copying a handler script into every asset.
 
 Eligible match rewards feed persistent Cash, Tickets, experience, fame, and win/loss records. A match must last at least 30 seconds to pay out, and a pair of opponents cannot earn another payout together in the same server for 10 minutes. Early forfeits still end the match but pay nothing. The shop checks item prices and ownership on the server. Customization code handles move loadouts and appearance choices against the player's unlocks. Client controllers handle the interface and audiovisual response to events; they do not decide combat outcomes or write profile data.
+
+The server records match outcomes, reasons, and duration for connected participants through Roblox analytics in the live experience. Reward update failures are logged separately so missing profile updates are visible during operation.
 
 ## Trust boundary
 
@@ -84,7 +88,7 @@ Connect Roblox Studio to the Rojo server to sync the source tree. For an XML pla
 rojo build default.project.json -o ProWrestlingLeagues.rbxlx
 ```
 
-The CI workflow installs the pinned packages, checks that the lockfile stays unchanged, and runs formatting, lint, and both Rojo builds. To run those checks locally:
+The [source checks workflow](.github/workflows/ci.yml) installs the pinned packages, checks that the lockfile stays unchanged, and runs formatting, lint, and both Rojo builds. Its badge covers those checks only. To run them locally:
 
 ```sh
 git diff --exit-code -- wally.lock
@@ -94,7 +98,19 @@ rojo build default.project.json -o ProWrestlingLeagues.rbxlx
 rojo build test.project.json -o ProWrestlingLeaguesTests.rbxlx
 ```
 
-The isolated TestEZ place covers match state, reward eligibility and award integration, movement plausibility, and reversal ownership. Open `ProWrestlingLeaguesTests.rbxlx` in Studio and run this in the command bar:
+The isolated TestEZ place covers match state, reward eligibility and award integration, movement plausibility, reversals, pin timing, and recovery cancellation. On Windows, the checked-in runner builds the test place, runs it in Studio, and fails if the passing result is missing:
+
+```powershell
+.\tests\RunStudioTests.ps1
+```
+
+The same runner can check that all server services initialize together in the built game place:
+
+```powershell
+.\tests\RunStudioTests.ps1 -Bootstrap
+```
+
+You can also open `ProWrestlingLeaguesTests.rbxlx` in Studio and run the specs manually from the command bar:
 
 ```lua
 local TestEZ = require(game.ReplicatedStorage.DevPackages.TestEZ)
@@ -102,7 +118,7 @@ local result = TestEZ.TestBootstrap:run({ game.ServerScriptService.Tests }, Test
 assert(result.failureCount == 0)
 ```
 
-CI builds and lints the tests; the TestEZ suite runs in Roblox Studio because it depends on Roblox engine APIs.
+The hosted source checks build and lint the tests; the TestEZ suite and bootstrap run in Roblox Studio through the script above.
 
 The source tree is the reviewable application layer; the [live Roblox game](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES) is the playable project. Studio-authored arenas, UI, animation, sound, and cosmetic assets connect through the documented runtime contract.
 
@@ -112,3 +128,5 @@ The source tree is the reviewable application layer; the [live Roblox game](http
 - [Review guide](docs/REVIEW_GUIDE.md): suggested reading order and invariants to check.
 - [Runtime assets](docs/RUNTIME_ASSETS.md): arena, weapon, animation, and entrance contracts.
 - [Refactor notes](docs/REFACTOR_NOTES.md): source organization and redesign decisions.
+
+**Note:** This repository presents the Pro Wrestling Leagues code as a code portfolio. My day-to-day contribution history is tied to a different GitHub account for organizational clarity and client privacy. The source here is the result of that work, so this account's commit history does not represent the game's full development history.

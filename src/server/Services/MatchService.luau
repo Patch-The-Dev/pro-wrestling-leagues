@@ -1,6 +1,9 @@
 --!strict
 
+local AnalyticsService = game:GetService("AnalyticsService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local MatchCoordinatorModule = require(script.Parent.Parent.Application.MatchCoordinator)
@@ -10,6 +13,38 @@ local Trove = require(ReplicatedStorage.Packages.Trove)
 
 type MatchCoordinator = MatchCoordinatorModule.MatchCoordinator
 type MatchEndReason = MatchTypes.MatchEndReason
+type MatchResult = MatchTypes.MatchResult
+
+local function recordMatchOutcome(players: { Player }, result: MatchResult)
+	if RunService:IsStudio() then
+		return
+	end
+
+	for _, player in players do
+		if player.Parent ~= Players then
+			continue
+		end
+
+		local outcome = if result.WinnerUserId == player.UserId
+			then "Win"
+			elseif result.LoserUserId == player.UserId then "Loss"
+			else "Draw"
+		local success, message = pcall(function()
+			AnalyticsService:LogCustomEvent(
+				player,
+				"ProWrestlingLeaguesMatchOutcome",
+				math.max(0, result.DurationSeconds),
+				{
+					Outcome = outcome,
+					Reason = result.Reason,
+				}
+			)
+		end)
+		if not success then
+			warn(`Match outcome analytics failed for user {player.UserId}: {tostring(message)}`)
+		end
+	end
+end
 
 local MatchService = Knit.CreateService({
 	Name = "MatchService",
@@ -43,6 +78,7 @@ function MatchService:KnitStart()
 			self.Client.MatchChanged:Fire(player, update)
 		end,
 		OnSessionClosed = function(players, result)
+			recordMatchOutcome(players, result)
 			self.SessionClosed:Fire(players, result)
 		end,
 	})
