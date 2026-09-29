@@ -41,7 +41,7 @@ end
 function CustomizationAdapter.Apply(character: Model, appearance: Appearance)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 		or character:WaitForChild("Humanoid", 5)
-	if humanoid == nil then
+	if humanoid == nil or not humanoid:IsA("Humanoid") then
 		warn(`Could not apply appearance to {character.Name}: Humanoid is unavailable`)
 		return
 	end
