@@ -27,10 +27,13 @@ jobs:
           git diff --exit-code -- wally.lock
 
       - name: Check formatting
-        run: stylua --check src
+        run: stylua --check src tests
 
       - name: Lint
-        run: selene src
+        run: selene src tests
 
       - name: Build Rojo project
         run: rojo build default.project.json -o ProWrestlingLeagues.rbxlx
+
+      - name: Build test place
+        run: rojo build test.project.json -o ProWrestlingLeaguesTests.rbxlx

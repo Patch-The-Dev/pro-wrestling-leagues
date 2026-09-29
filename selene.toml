@@ -1,1 +1,6 @@
-std = "roblox"
+std = "roblox+testez"
+
+[lints]
+shadowing = "warn"
+unused_variable = "warn"
+multiple_statements = "deny"

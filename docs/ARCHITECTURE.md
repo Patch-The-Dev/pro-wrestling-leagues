@@ -35,7 +35,9 @@ The validation order is intentional. An action is fully checked before stamina, 
 
 ## Match lifecycle
 
-`MatchService` is a transport facade over `Application/MatchCoordinator`. `MatchSession` owns lifecycle state while the coordinator owns queueing, arena placement, rewards, disconnect handling, and delayed cleanup. Matches do not enter `Active` unless the configured arena provides enough spawn points for every participant.
+`MatchService` is a transport facade over `Application/MatchCoordinator`. `MatchSession` owns lifecycle state while the coordinator owns queueing, arena placement, rewards, disconnect handling, and delayed cleanup. Matches do not enter `Active` unless the configured arena provides enough spawn points and both original characters remain ready through the entrance countdown. An aborted countdown releases the arena and requeues eligible players.
+
+The countdown is calculated from entrance lead-in, entrant spacing, presentation duration, and a short buffer. Entrance cues carry the match ID; the client discards stale cues and restores camera, lighting, music, and pyro on match state changes.
 
 ## Persistence
 
@@ -48,6 +50,10 @@ Studio uses ProfileStore mock storage by default. This keeps local testing away 
 Knit supplies transport. `shared/Network/Contracts.luau` defines the accepted request vocabulary and runtime validators. `RequestGateService` centralizes per-player request throttling, backed by `RequestGuard`.
 
 Clients send intent such as attack, grapple direction, pin input, purchase, or loadout change. Clients never report damage values, target identity, successful hits, currency changes, or persistence mutations as authority.
+
+Roblox may give clients network ownership of their characters. `MovementHistory` samples server-observed positions, rejects large jumps, and requires sampled travel plus bounded velocity for running actions. Target selection also excludes candidates temporarily blocked by this check. This constrains obvious movement spoofing; it does not make replicated transforms fully authoritative. The thresholds in `CombatConfig` should be tuned against live latency and movement data.
+
+Rewards require a minimum active duration and a same-server cooldown for the same opponent pair. This reduces quick forfeit and rematch farming. The cooldown is in server memory, so it is not a cross-server fraud limit. Failed profile updates and balance notifications are reported separately, avoiding a false failure after a successful balance mutation.
 
 ## State ownership
 
@@ -62,6 +68,10 @@ Profile state belongs to `PlayerRepository`. UI controllers hold presentation st
 Trove represents ownership. Connections, session objects, and promises are attached to the object that owns their lifetime.
 
 Promise is limited to real asynchronous boundaries such as profile loading, entrance sequencing, countdowns, reversal windows, pin timing, and delayed state recovery. Pure calculations return values directly.
+
+## Framework maintenance
+
+Knit 1.7.0 is pinned in Wally for this codebase. Its use is confined to service and controller facades; domain rules, coordinators, and persistence do not depend on Knit APIs. A future framework migration can replace those facades and signals while preserving the underlying gameplay modules. Dependency updates should be tested in the isolated Studio test place and against the live asset contract before release.
 
 ## Runtime tags
 

@@ -14,6 +14,9 @@ This repository presents the Luau application code for Pro Wrestling Leagues. Th
 - Client requests carry intent, not authoritative results.
 - Resource costs are committed only after an action is fully validated.
 - Match rewards are issued only from an active match.
+- Match rewards also require sufficient active time and a same-server opponent cooldown.
+- A cancelled countdown cannot begin combat, and stale entrance cues cannot play after match activation.
+- Running actions require plausible sampled travel, not velocity alone.
 - Persistence is accessed through one repository boundary.
 - Stateful objects own cleanup through Trove.
 - Timed interactions use server time.

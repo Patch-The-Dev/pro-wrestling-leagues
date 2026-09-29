@@ -40,7 +40,9 @@ end
 
 function CustomizationAdapter.Apply(character: Model, appearance: Appearance)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
+		or character:WaitForChild("Humanoid", 5)
 	if humanoid == nil then
+		warn(`Could not apply appearance to {character.Name}: Humanoid is unavailable`)
 		return
 	end
 
@@ -48,6 +50,7 @@ function CustomizationAdapter.Apply(character: Model, appearance: Appearance)
 		return humanoid:GetAppliedDescription()
 	end)
 	if not ok then
+		warn(`Could not read appearance for {character.Name}: {tostring(description)}`)
 		return
 	end
 
@@ -72,9 +75,12 @@ function CustomizationAdapter.Apply(character: Model, appearance: Appearance)
 		description.TorsoColor = skinTone
 	end
 
-	pcall(function()
+	local applied, applyError = pcall(function()
 		humanoid:ApplyDescription(description)
 	end)
+	if not applied then
+		warn(`Could not apply appearance to {character.Name}: {tostring(applyError)}`)
+	end
 end
 
 return table.freeze(CustomizationAdapter)

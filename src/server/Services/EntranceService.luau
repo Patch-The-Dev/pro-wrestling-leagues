@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local EntranceConfig = require(ReplicatedStorage.Shared.Config.EntranceConfig)
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local MatchConfig = require(ReplicatedStorage.Shared.Config.MatchConfig)
 local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 
 type EntranceCue = NetworkTypes.EntranceCue
@@ -20,13 +21,19 @@ function EntranceService:KnitStart()
 	self._requestGate = Knit.GetService("RequestGateService")
 end
 
-function EntranceService:_buildCue(player: Player, startsAt: number, arenaId: string?): EntranceCue?
+function EntranceService:_buildCue(
+	player: Player,
+	startsAt: number,
+	arenaId: string?,
+	matchId: string?
+): EntranceCue?
 	local data = self._dataService:Get(player)
 	if data == nil then
 		return nil
 	end
 
 	return {
+		MatchId = matchId,
 		UserId = player.UserId,
 		DisplayName = data.Wrestler.DisplayName,
 		MusicId = data.Entrance.MusicId,
@@ -37,13 +44,21 @@ function EntranceService:_buildCue(player: Player, startsAt: number, arenaId: st
 	}
 end
 
-function EntranceService:PlayForPlayers(players: { Player }, arenaId: string)
-	local startsAt = workspace:GetServerTimeNow() + EntranceConfig.LeadInSeconds
+function EntranceService:PlayForPlayers(
+	players: { Player },
+	arenaId: string,
+	matchId: string,
+	matchStartsAt: number
+)
+	local startsAt = matchStartsAt
+		- MatchConfig.StartCountdownSeconds
+		+ EntranceConfig.LeadInSeconds
 	for index, entrant in players do
 		local cue = self:_buildCue(
 			entrant,
 			startsAt + (index - 1) * EntranceConfig.EntrantSpacingSeconds,
-			arenaId
+			arenaId,
+			matchId
 		)
 		if cue ~= nil then
 			for _, viewer in players do
@@ -58,7 +73,7 @@ function EntranceService.Client:Preview(player: Player)
 		return false
 	end
 
-	local cue = self.Server:_buildCue(player, workspace:GetServerTimeNow() + 0.25, nil)
+	local cue = self.Server:_buildCue(player, workspace:GetServerTimeNow() + 0.25, nil, nil)
 	if cue == nil then
 		return false
 	end

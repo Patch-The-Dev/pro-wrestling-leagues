@@ -3,6 +3,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local EconomyConfig = require(ReplicatedStorage.Shared.Config.EconomyConfig)
+local MatchConfig = require(ReplicatedStorage.Shared.Config.MatchConfig)
+local MatchTypes = require(ReplicatedStorage.Shared.Types.MatchTypes)
+
+type MatchEndReason = MatchTypes.MatchEndReason
 
 type Reward = {
 	Cash: number,
@@ -12,6 +16,22 @@ type Reward = {
 }
 
 local RewardPolicy = {}
+
+function RewardPolicy.IsEligible(
+	reason: MatchEndReason,
+	durationSeconds: number,
+	lastRewardedAt: number?,
+	now: number
+): boolean
+	if reason == "Vote" or reason == "Cancelled" then
+		return false
+	end
+	if durationSeconds < MatchConfig.MinimumRewardDurationSeconds then
+		return false
+	end
+	return lastRewardedAt == nil
+		or now - lastRewardedAt >= MatchConfig.RepeatOpponentRewardCooldownSeconds
+end
 
 function RewardPolicy.ForMatchOutcome(didWin: boolean): Reward
 	local configured = if didWin

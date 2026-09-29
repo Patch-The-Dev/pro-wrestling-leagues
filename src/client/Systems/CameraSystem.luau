@@ -68,12 +68,16 @@ function CameraSystem:FocusPlayer(userId: number, duration: number)
 	return promise
 end
 
-function CameraSystem:Destroy()
+function CameraSystem:Stop()
 	self._generation += 1
 	local camera = workspace.CurrentCamera
 	if camera ~= nil and self._baselineType ~= nil then
 		self:_restore(camera)
 	end
+end
+
+function CameraSystem:Destroy()
+	self:Stop()
 	self._trove:Destroy()
 end
 

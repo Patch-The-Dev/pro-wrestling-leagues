@@ -1,0 +1,45 @@
+{
+  "name": "ProWrestlingLeaguesTests",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Packages": {
+        "$path": "Packages"
+      },
+      "DevPackages": {
+        "$path": "DevPackages"
+      },
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "Server": {
+        "$className": "Folder",
+        "Application": {
+          "$path": "src/server/Application"
+        },
+        "Adapters": {
+          "$path": "src/server/Adapters"
+        },
+        "Components": {
+          "$path": "src/server/Components"
+        },
+        "Domain": {
+          "$path": "src/server/Domain"
+        },
+        "Persistence": {
+          "$path": "src/server/Persistence"
+        }
+      },
+      "Tests": {
+        "$path": "tests"
+      },
+      "ServerPackages": {
+        "$path": "ServerPackages"
+      }
+    }
+  }
+}

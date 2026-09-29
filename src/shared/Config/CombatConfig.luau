@@ -58,10 +58,14 @@ local CombatConfig = {
 	Movement = {
 		RunningSpeedThreshold = 12,
 		DashBackwardSpeed = 35,
+		MaximumPlausibleSpeed = 48,
+		PositionSlackStuds = 5,
+		SampleIntervalSeconds = 0.1,
+		SuspiciousMovementLockSeconds = 1,
 	},
 
 	Reversal = {
-		WindowSeconds = 0.22,
+		WindowSeconds = 0.8,
 		StaminaReward = 8,
 		FinisherReward = 5,
 	},

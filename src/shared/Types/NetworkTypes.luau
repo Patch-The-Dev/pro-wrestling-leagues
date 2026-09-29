@@ -18,6 +18,7 @@ export type WeaponAction = "Pickup" | "Drop" | "Attack"
 export type PinResolution = "Escaped" | "Pinned"
 
 export type EntranceCue = {
+	MatchId: string?,
 	UserId: number,
 	DisplayName: string,
 	MusicId: string?,

@@ -16,6 +16,7 @@ local CharacterAdapter = require(script.Parent.Parent.Adapters.CharacterAdapter)
 local CombatRules = require(script.Parent.Parent.Domain.Combat.CombatRules)
 local CombatantModule = require(script.Parent.Parent.Domain.Combat.Combatant)
 local GrappleCoordinatorModule = require(script.Parent.Parent.Domain.Combat.GrappleCoordinator)
+local MovementHistoryModule = require(script.Parent.Parent.Domain.Combat.MovementHistory)
 local PinCoordinatorModule = require(script.Parent.Parent.Domain.Combat.PinCoordinator)
 local RecoverySchedulerModule = require(script.Parent.Parent.Domain.Combat.RecoveryScheduler)
 local StrikeResolverModule = require(script.Parent.StrikeResolver)
@@ -31,6 +32,7 @@ type ResolvedAction = CombatTypes.ResolvedAction
 type PinResolution = NetworkTypes.PinResolution
 type Combatant = CombatantModule.Combatant
 type GrappleCoordinator = GrappleCoordinatorModule.GrappleCoordinator
+type MovementHistory = MovementHistoryModule.MovementHistory
 type PinCoordinator = PinCoordinatorModule.PinCoordinator
 type PlayerData = PlayerDataTypes.PlayerData
 type RecoveryScheduler = RecoverySchedulerModule.RecoveryScheduler
@@ -77,7 +79,10 @@ export type CombatCoordinator = typeof(setmetatable(
 		_emitAction: EmitAction,
 		_combatants: { [Player]: Combatant },
 		_reportedDeaths: { [Player]: boolean },
+		_characterGeneration: { [Player]: number },
 		_budget: ActionBudget,
+		_movement: MovementHistory,
+		_isPlausibleCharacter: (player: Player) -> boolean,
 		_recovery: RecoveryScheduler,
 		_grapples: GrappleCoordinator,
 		_pins: PinCoordinator,
@@ -90,6 +95,20 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 	local trove = Trove.new()
 	local combatants: { [Player]: Combatant } = {}
 	local budget = ActionBudgetModule.new()
+	local movement = MovementHistoryModule.new()
+	local function isPlausibleCharacter(player: Player): boolean
+		local combatant = combatants[player]
+		if combatant == nil or player.Character ~= combatant.Character then
+			return false
+		end
+		local root = combatant.Character:FindFirstChild("HumanoidRootPart")
+		if root == nil or not root:IsA("BasePart") then
+			return false
+		end
+		local now = workspace:GetServerTimeNow()
+		movement:Observe(player, root.Position, now)
+		return movement:IsPlausible(player, now)
+	end
 	local recovery = RecoverySchedulerModule.new(function(player)
 		return combatants[player]
 	end)
@@ -119,7 +138,8 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 				player,
 				dependencies.MatchSource:GetOpponents(player),
 				range,
-				CombatConfig.Targeting.MinimumFacingDot
+				CombatConfig.Targeting.MinimumFacingDot,
+				isPlausibleCharacter
 			)
 		end,
 		EmitToParticipants = function(attacker, target, event)
@@ -137,7 +157,10 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 		_emitAction = dependencies.EmitAction,
 		_combatants = combatants,
 		_reportedDeaths = {},
+		_characterGeneration = {},
 		_budget = budget,
+		_movement = movement,
+		_isPlausibleCharacter = isPlausibleCharacter,
 		_recovery = recovery,
 		_grapples = grapples,
 		_pins = pins,
@@ -145,6 +168,7 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 	}, CombatCoordinator)
 
 	trove:Add(budget)
+	trove:Add(movement)
 	trove:Add(recovery)
 	trove:Add(grapples)
 	trove:Add(pins)
@@ -174,13 +198,21 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 end
 
 function CombatCoordinator:_bindCharacter(player: Player, character: Model)
+	local generation = (self._characterGeneration[player] or 0) + 1
+	self._characterGeneration[player] = generation
+	self._movement:Forget(player)
 	self._grapples:CancelForPlayer(player)
 	self._pins:CancelForPlayer(player)
 	self:_removeCombatant(player)
 
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 		or character:WaitForChild("Humanoid", 5)
-	if humanoid == nil or not humanoid:IsA("Humanoid") then
+	if
+		humanoid == nil
+		or not humanoid:IsA("Humanoid")
+		or self._characterGeneration[player] ~= generation
+		or player.Character ~= character
+	then
 		return
 	end
 
@@ -198,6 +230,8 @@ function CombatCoordinator:_removeCombatant(player: Player)
 end
 
 function CombatCoordinator:_removePlayer(player: Player)
+	self._characterGeneration[player] = nil
+	self._movement:Forget(player)
 	self._grapples:CancelForPlayer(player)
 	self._pins:CancelForPlayer(player)
 	self:_removeCombatant(player)
@@ -207,6 +241,10 @@ end
 
 function CombatCoordinator:_step(deltaTime: number)
 	for player, combatant in self._combatants do
+		local root = combatant.Character:FindFirstChild("HumanoidRootPart")
+		if root ~= nil and root:IsA("BasePart") then
+			self._movement:Observe(player, root.Position, workspace:GetServerTimeNow())
+		end
 		combatant:Step(deltaTime)
 
 		if combatant:GetState() == "Dead" and self._reportedDeaths[player] ~= true then
@@ -223,7 +261,8 @@ function CombatCoordinator:_findTarget(player: Player, range: number): Player?
 		player,
 		self._matchSource:GetOpponents(player),
 		range,
-		CombatConfig.Targeting.MinimumFacingDot
+		CombatConfig.Targeting.MinimumFacingDot,
+		self._isPlausibleCharacter
 	)
 end
 
@@ -238,6 +277,9 @@ function CombatCoordinator:_validateBase(
 	local combatant = self._combatants[player]
 	if combatant == nil then
 		return nil, "Character is unavailable"
+	end
+	if not self._isPlausibleCharacter(player) then
+		return nil, "Character movement is not plausible"
 	end
 
 	local allowed, reason = self._budget:Validate(player, combatant, action)
@@ -255,9 +297,11 @@ function CombatCoordinator:_isCharacterRunning(player: Player): boolean
 		return false
 	end
 
-	local velocity = root.AssemblyLinearVelocity
-	local horizontalSpeed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
-	return horizontalSpeed >= CombatConfig.Movement.RunningSpeedThreshold
+	return self._movement:IsRunning(
+		player,
+		root.AssemblyLinearVelocity,
+		workspace:GetServerTimeNow()
+	)
 end
 
 function CombatCoordinator:GetState(player: Player): CombatState?
@@ -273,6 +317,7 @@ function CombatCoordinator:EnterTurnbuckle(player: Player, turnbuckle: BasePart)
 	local combatant = self._combatants[player]
 	if
 		combatant == nil
+		or not self._isPlausibleCharacter(player)
 		or combatant:GetState() ~= "Roaming"
 		or not combatant:CanSetState("ClimbingTurnbuckle")
 	then
@@ -283,6 +328,7 @@ function CombatCoordinator:EnterTurnbuckle(player: Player, turnbuckle: BasePart)
 	CharacterAdapter.SetMovementEnabled(combatant.Character, false)
 	local target = turnbuckle.CFrame * CFrame.new(0, turnbuckle.Size.Y * 0.5 + 2.5, 0)
 	CharacterAdapter.PlaceAt(combatant.Character, target)
+	self._movement:Forget(player)
 	self._recovery:ScheduleState(combatant, "ClimbingTurnbuckle", "SittingOnTurnbuckle", 0.55)
 	return true
 end
@@ -458,6 +504,9 @@ function CombatCoordinator:ApplyWeaponAttack(
 	if not self._matchSource:IsMatchActiveFor(player) then
 		return false
 	end
+	if not self._isPlausibleCharacter(player) then
+		return false
+	end
 
 	local attacker = self._combatants[player]
 	if attacker == nil then
@@ -476,6 +525,7 @@ function CombatCoordinator:ResetForMatchEnd(players: { Player })
 		self._grapples:CancelForPlayer(player)
 		self._pins:CancelForPlayer(player)
 		self._budget:Forget(player)
+		self._movement:Forget(player)
 
 		local combatant = self._combatants[player]
 		if combatant ~= nil then
@@ -492,6 +542,7 @@ function CombatCoordinator:Destroy()
 		self:_removeCombatant(player)
 	end
 	table.clear(self._reportedDeaths)
+	table.clear(self._characterGeneration)
 	self._trove:Destroy()
 end
 

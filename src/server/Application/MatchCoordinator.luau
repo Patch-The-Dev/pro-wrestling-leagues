@@ -13,6 +13,7 @@ local Trove = require(ReplicatedStorage.Packages.Trove)
 local ArenaRegistryModule = require(script.Parent.Parent.Components.ArenaRegistry)
 local CharacterAdapter = require(script.Parent.Parent.Adapters.CharacterAdapter)
 local MatchSessionModule = require(script.Parent.Parent.Domain.Match.MatchSession)
+local RewardPolicy = require(script.Parent.Parent.Domain.Economy.RewardPolicy)
 
 type ArenaRegistry = ArenaRegistryModule.ArenaRegistry
 type MatchEndReason = MatchTypes.MatchEndReason
@@ -29,7 +30,13 @@ type EconomySource = {
 }
 
 type EntranceSource = {
-	PlayForPlayers: (self: EntranceSource, players: { Player }, arenaId: string) -> (),
+	PlayForPlayers: (
+		self: EntranceSource,
+		players: { Player },
+		arenaId: string,
+		matchId: string,
+		matchStartsAt: number
+	) -> (),
 }
 
 type EmitQueueChanged = (player: Player, queued: boolean) -> ()
@@ -72,6 +79,7 @@ export type MatchCoordinator = typeof(setmetatable(
 		_queue: { Player },
 		_matchesByPlayer: { [Player]: MatchSession },
 		_sessions: { [string]: MatchSession },
+		_lastRewardedPairAt: { [string]: number },
 	},
 	{} :: typeof(MatchCoordinator)
 ))
@@ -92,6 +100,7 @@ function MatchCoordinator.new(dependencies: Dependencies): MatchCoordinator
 		_queue = {},
 		_matchesByPlayer = {},
 		_sessions = {},
+		_lastRewardedPairAt = {},
 	}, MatchCoordinator)
 
 	trove:Add(arenaRegistry)
@@ -211,10 +220,37 @@ function MatchCoordinator:_createMatch(players: { Player }): boolean
 		self:_abortStartingSession(session)
 		return false
 	end
-	self._entranceSource:PlayForPlayers(players, session.ArenaId)
+	local startingCharacters: { [Player]: Model } = {}
+	for _, player in players do
+		startingCharacters[player] = player.Character :: Model
+	end
+	self._entranceSource:PlayForPlayers(players, session.ArenaId, session.Id, startsAt)
 
 	local countdown = Promise.delay(MatchConfig.StartCountdownSeconds):andThen(function()
-		if self._sessions[id] ~= session or not session:Start() then
+		if self._sessions[id] ~= session or session.State ~= "Starting" then
+			return
+		end
+		for _, player in session.Players do
+			if
+				player.Parent ~= Players
+				or not self._dataSource:IsLoaded(player)
+				or player.Character ~= startingCharacters[player]
+				or not isCharacterReady(player)
+			then
+				self:_abortStartingSession(session)
+				for _, candidate in session.Players do
+					if
+						candidate ~= player
+						and candidate.Parent == Players
+						and isCharacterReady(candidate)
+					then
+						self:JoinQueue(candidate)
+					end
+				end
+				return
+			end
+		end
+		if not session:Start() then
 			return
 		end
 
@@ -229,6 +265,21 @@ function MatchCoordinator:_createMatch(players: { Player }): boolean
 	end)
 	self._trove:AddPromise(countdown)
 	return true
+end
+
+local function pairKey(first: Player, second: Player): string
+	local low = math.min(first.UserId, second.UserId)
+	local high = math.max(first.UserId, second.UserId)
+	return `{low}:{high}`
+end
+
+function MatchCoordinator:_award(player: Player, didWin: boolean, matchId: string)
+	local succeeded, awarded = pcall(function()
+		return self._economySource:ApplyMatchReward(player, didWin)
+	end)
+	if not succeeded or not awarded then
+		warn(`Match reward failed for user {player.UserId} in match {matchId}: {tostring(awarded)}`)
+	end
 end
 
 function MatchCoordinator:_placePlayers(session: MatchSession): boolean
@@ -371,11 +422,26 @@ function MatchCoordinator:_finishSession(
 		return false
 	end
 
-	if winner ~= nil then
-		self._economySource:ApplyMatchReward(winner, true)
-	end
-	if loser ~= nil then
-		self._economySource:ApplyMatchReward(loser, false)
+	if winner ~= nil and loser ~= nil then
+		local now = workspace:GetServerTimeNow()
+		for oldKey, rewardedAt in self._lastRewardedPairAt do
+			if now - rewardedAt >= MatchConfig.RepeatOpponentRewardCooldownSeconds then
+				self._lastRewardedPairAt[oldKey] = nil
+			end
+		end
+		local key = pairKey(winner, loser)
+		if
+			RewardPolicy.IsEligible(
+				reason,
+				result.DurationSeconds,
+				self._lastRewardedPairAt[key],
+				now
+			)
+		then
+			self._lastRewardedPairAt[key] = now
+			self:_award(winner, true, session.Id)
+			self:_award(loser, false, session.Id)
+		end
 	end
 
 	for _, player in session.Players do
@@ -464,6 +530,7 @@ function MatchCoordinator:Destroy()
 		session:Destroy()
 	end
 	table.clear(self._sessions)
+	table.clear(self._lastRewardedPairAt)
 	table.clear(self._matchesByPlayer)
 	table.clear(self._queue)
 	self._trove:Destroy()

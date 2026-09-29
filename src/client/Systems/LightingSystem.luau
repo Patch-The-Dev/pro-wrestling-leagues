@@ -81,9 +81,13 @@ function LightingSystem:PlayPreset(presetName: string, duration: number)
 	return promise
 end
 
-function LightingSystem:Destroy()
+function LightingSystem:Stop()
 	self._generation += 1
 	self:_restore()
+end
+
+function LightingSystem:Destroy()
+	self:Stop()
 	self._trove:Destroy()
 end
 

@@ -51,21 +51,34 @@ end
 
 function EconomyService:ApplyMatchReward(player: Player, didWin: boolean): boolean
 	local reward = RewardPolicy.ForMatchOutcome(didWin)
-	local updated = self._dataService:Update(player, function(data)
-		data.Currencies.Cash += reward.Cash
-		data.Currencies.Tickets += reward.Tickets
-		data.Progression.Experience += reward.Experience
-		data.Progression.Fame += reward.Fame
+	local ok, updated = pcall(function()
+		return self._dataService:Update(player, function(data)
+			data.Currencies.Cash += reward.Cash
+			data.Currencies.Tickets += reward.Tickets
+			data.Progression.Experience += reward.Experience
+			data.Progression.Fame += reward.Fame
 
-		if didWin then
-			data.Statistics.Wins += 1
-		else
-			data.Statistics.Losses += 1
-		end
+			if didWin then
+				data.Statistics.Wins += 1
+			else
+				data.Statistics.Losses += 1
+			end
+		end)
 	end)
+	if not ok then
+		warn(`Match reward update failed for user {player.UserId}: {tostring(updated)}`)
+		return false
+	end
 
 	if updated then
-		self:_publishBalance(player)
+		local published, publishError = pcall(function()
+			self:_publishBalance(player)
+		end)
+		if not published then
+			warn(
+				`Match balance notification failed for user {player.UserId}: {tostring(publishError)}`
+			)
+		end
 	end
 	return updated
 end

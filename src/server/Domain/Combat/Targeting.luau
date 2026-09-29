@@ -30,7 +30,8 @@ function Targeting.FindNearestOpponent(
 	attacker: Player,
 	candidates: { Player },
 	maximumDistance: number,
-	minimumFacingDot: number
+	minimumFacingDot: number,
+	isCandidateValid: ((Player) -> boolean)?
 ): Player?
 	local attackerCharacter = attacker.Character
 	if attackerCharacter == nil then
@@ -46,7 +47,7 @@ function Targeting.FindNearestOpponent(
 	local bestDistance = maximumDistance
 
 	for _, candidate in candidates do
-		if candidate ~= attacker then
+		if candidate ~= attacker and (isCandidateValid == nil or isCandidateValid(candidate)) then
 			local candidateCharacter = candidate.Character
 			local candidateRoot = if candidateCharacter ~= nil
 				then getRoot(candidateCharacter)
