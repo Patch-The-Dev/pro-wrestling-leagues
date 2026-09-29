@@ -87,6 +87,16 @@ function AnimationSystem:PlayResolvedAction(event: ResolvedAction)
 	end
 end
 
+function AnimationSystem:PlayStartedAction(event: ResolvedAction)
+	self:_playForUser(event.AttackerUserId, resolveAnimation(resolveKey(event), "Attacker"))
+end
+
+function AnimationSystem:PlayStrikeImpact(event: ResolvedAction)
+	if event.TargetUserId ~= nil then
+		self:_playForUser(event.TargetUserId, resolveAnimation(resolveKey(event), "Victim"))
+	end
+end
+
 function AnimationSystem:Destroy()
 	self._trove:Destroy()
 end

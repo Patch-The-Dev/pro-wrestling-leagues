@@ -49,6 +49,7 @@ local CombatConfig = {
 
 	Pin = {
 		InputWindowSeconds = 0.16,
+		MaximumOneWayLatencyCompensationSeconds = 0.12,
 		FirstPromptDelay = 0.75,
 		SecondPromptDelay = 1.0,
 		ThirdPromptDelay = 1.25,

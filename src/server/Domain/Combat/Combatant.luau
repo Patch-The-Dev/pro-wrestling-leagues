@@ -68,6 +68,12 @@ local ALLOWED_TRANSITIONS: { [string]: { [string]: boolean } } = {
 	Dead = {},
 }
 
+local function setAttributeIfChanged(character: Model, name: string, value: string | number)
+	if character:GetAttribute(name) ~= value then
+		character:SetAttribute(name, value)
+	end
+end
+
 function Combatant.new(player: Player, character: Model): Combatant
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	assert(humanoid ~= nil, "Combatant character requires a Humanoid")
@@ -108,11 +114,11 @@ end
 
 function Combatant:_replicateSnapshot()
 	local snapshot = self:GetSnapshot()
-	self.Character:SetAttribute("CombatState", snapshot.State)
-	self.Character:SetAttribute("CombatHealth", snapshot.Health)
-	self.Character:SetAttribute("CombatStamina", snapshot.Stamina)
-	self.Character:SetAttribute("CombatPoise", snapshot.Poise)
-	self.Character:SetAttribute("CombatFinisher", snapshot.Finisher)
+	setAttributeIfChanged(self.Character, "CombatState", snapshot.State)
+	setAttributeIfChanged(self.Character, "CombatHealth", snapshot.Health)
+	setAttributeIfChanged(self.Character, "CombatStamina", snapshot.Stamina)
+	setAttributeIfChanged(self.Character, "CombatPoise", snapshot.Poise)
+	setAttributeIfChanged(self.Character, "CombatFinisher", snapshot.Finisher)
 end
 
 function Combatant:GetState(): CombatState

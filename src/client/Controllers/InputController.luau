@@ -65,7 +65,7 @@ function InputController:_grappleDirection(): GrappleDirection
 			return if right >= 0 then "Right" else "Left"
 		end
 	end
-	return "Finisher"
+	return "Forward"
 end
 
 function InputController:_requestGrapple()
@@ -103,6 +103,9 @@ function InputController:KnitStart()
 	self:_bindTouchAction("Grapple", "Grapple", gamepad.Grapple, function()
 		self:_requestGrapple()
 	end)
+	self:_bindTouchAction("Finisher", "Finisher", gamepad.Finisher, function()
+		self.GrappleRequested:Fire("Finisher", false)
+	end)
 	self:_bindTouchAction("Context", "Counter", gamepad.Context, function()
 		self.ContextPressed:Fire()
 	end)
@@ -130,6 +133,8 @@ function InputController:KnitStart()
 			self.ActionRequested:Fire("Attack")
 		elseif input.KeyCode == InputConfig.Grapple then
 			self:_requestGrapple()
+		elseif input.KeyCode == InputConfig.Finisher or input.KeyCode == gamepad.Finisher then
+			self.GrappleRequested:Fire("Finisher", false)
 		elseif input.KeyCode == InputConfig.Context then
 			self.ContextPressed:Fire()
 		elseif input.KeyCode == InputConfig.Pin then

@@ -154,17 +154,23 @@ function WeaponService:RequestAction(
 		if not component:CanUse() then
 			return false, "Weapon is not ready"
 		end
-		if
-			not self._combatService:ApplyWeaponAttack(
+		local consumed, previousUsedAt, revision = component:ConsumeUse()
+		if not consumed then
+			return false, "Weapon state changed before commit"
+		end
+		local appliedWithoutError, applied = pcall(function()
+			return self._combatService:ApplyWeaponAttack(
 				player,
 				component:GetDamageSpec(),
 				component.DefinitionId
 			)
-		then
+		end)
+		if not appliedWithoutError or not applied then
+			component:RollbackUse(previousUsedAt :: number, revision :: number)
+			if not appliedWithoutError then
+				warn(`Weapon attack failed for user {player.UserId}: {tostring(applied)}`)
+			end
 			return false, "No valid target"
-		end
-		if not component:ConsumeUse() then
-			return false, "Weapon state changed before commit"
 		end
 	end
 

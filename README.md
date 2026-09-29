@@ -13,10 +13,10 @@ Pro Wrestling Leagues is a full-stack, solo-developed wrestling game with multip
 | Area | Implementation | What it demonstrates |
 | --- | --- | --- |
 | Combat | [`CombatService`](src/server/Services/CombatService.luau), [`CombatCoordinator`](src/server/Application/CombatCoordinator.luau), [`StrikeResolver`](src/server/Application/StrikeResolver.luau) | Validated player intent, server-selected targets, action costs, strikes, and weapon damage |
-| Grapples and pins | [`GrappleCoordinator`](src/server/Domain/Combat/GrappleCoordinator.luau), [`PinCoordinator`](src/server/Domain/Combat/PinCoordinator.luau) | Timed reversals, directional moves, pin inputs, and state transitions |
+| Grapples and pins | [`GrappleCoordinator`](src/server/Domain/Combat/GrappleCoordinator.luau), [`PinCoordinator`](src/server/Domain/Combat/PinCoordinator.luau), [`PinPromptView`](src/client/UI/PinPromptView.luau) | Timed reversals, visible pin timing, directional moves, and state transitions |
 | Matches | [`MatchCoordinator`](src/server/Application/MatchCoordinator.luau), [`MatchSession`](src/server/Domain/Match/MatchSession.luau) | Two-player queueing, arena reservation, countdowns, results, disconnects, and cleanup |
 | Player data | [`PlayerRepository`](src/server/Persistence/PlayerRepository.luau), [`ProfileMigrations`](src/server/Persistence/ProfileMigrations.luau) | A single persistence boundary with schema migration and Studio mock storage |
-| Economy | [`EconomyService`](src/server/Services/EconomyService.luau), [`RewardPolicy`](src/server/Domain/Economy/RewardPolicy.luau) | Server-owned match rewards, prices, balances, and unlocks |
+| Economy | [`EconomyService`](src/server/Services/EconomyService.luau), [`RewardCooldown`](src/server/Domain/Economy/RewardCooldown.luau) | Server-owned match rewards, cross-server opponent limits, prices, balances, and unlocks |
 | Presentation | [`src/client`](https://github.com/Patch-The-Dev/pro-wrestling-leagues/tree/main/src/client), [`EntranceService`](src/server/Services/EntranceService.luau) | Inputs, HUD, animation, cameras, audio, lighting, and entrances kept apart from authoritative rules |
 
 Start with the [review guide](docs/REVIEW_GUIDE.md) for a short reading order, or read the [architecture notes](docs/ARCHITECTURE.md) for the dependency and ownership rules.
@@ -25,11 +25,11 @@ Start with the [review guide](docs/REVIEW_GUIDE.md) for a short reading order, o
 
 The match flow pairs two eligible players, reserves an arena, places their characters, runs both entrances, then starts an active session. The countdown is derived from the entrance timing and checks that both original characters are alive and loaded before activation. A session records pin, knockout, forfeit, or vote results. The arena and combat state are cleaned up when the session closes.
 
-Combat includes a three-hit strike chain, running attacks, directional grapples, finishers, reversals, pins, stamina, health, poise, and finisher charge. `Combatant` owns the state of each fighter. `ActionBudget` checks cooldowns and resources; `Targeting` checks opponents, range, facing, and line of sight; resolvers apply accepted actions. Timed interactions and delayed recovery are owned by the corresponding session or scheduler so old work cannot change a later combat state.
+Combat includes a three-hit strike chain, running attacks, directional grapples, finishers, reversals, pins, stamina, health, poise, and finisher charge. `Combatant` owns the state of each fighter. `ActionBudget` checks cooldowns and resources. Strike animations start when the server accepts an action; the server checks range, facing, line of sight, and match state again at the move's configured impact time before applying damage. Timed interactions and delayed recovery are owned by the corresponding session or scheduler so old work cannot change a later combat state. Pin input uses a visible client timing bar and a capped allowance derived from server-measured round-trip latency.
 
 The server also manages arena weapons and turnbuckle interactions. Weapon instances are tracked by identity and arena, with ownership, cooldown, and durability checks. CollectionService tags bind world behavior without copying a handler script into every asset.
 
-Eligible match rewards feed persistent Cash, Tickets, experience, fame, and win/loss records. A match must last at least 30 seconds to pay out, and a pair of opponents cannot earn another payout together in the same server for 10 minutes. Early forfeits still end the match but pay nothing. The shop checks item prices and ownership on the server. Customization code handles move loadouts and appearance choices against the player's unlocks. Client controllers handle the interface and audiovisual response to events; they do not decide combat outcomes or write profile data.
+Eligible match rewards feed persistent Cash, Tickets, experience, fame, and win/loss records. A match must last at least 30 seconds to pay out. A MemoryStore claim prevents the same opponent pair from earning another payout across servers for 10 minutes. If the shared claim fails, the match ends without a payout and the failure is logged. Early forfeits also pay nothing. The shop checks item prices and ownership on the server. Customization code handles move loadouts and appearance choices against the player's unlocks. Client controllers handle the interface and audiovisual response to events; they do not decide combat outcomes or write profile data.
 
 The server records match outcomes, reasons, and duration for connected participants through Roblox analytics in the live experience. Reward update failures are logged separately so missing profile updates are visible during operation.
 
@@ -49,7 +49,7 @@ Clients send bounded requests such as an action name, grapple direction, pin inp
 
 ## Controls
 
-Keyboard and mouse, gamepad, and touch feed the same client action signals. Gamepad bindings cover strikes, grapples, reversals, pins, running attacks, turnbuckle actions, taunts, and dashes. Touch provides buttons for the core strike, grapple, counter, pin, and dash actions; directional grapples use the movement direction. All three input paths request actions through the same validated server methods.
+Keyboard and mouse, gamepad, and touch feed the same client action signals. Gamepad bindings cover strikes, grapples, reversals, pins, running attacks, turnbuckle actions, taunts, and dashes. Touch provides buttons for strike, grapple, finisher, counter, pin, and dash. Directional grapples use movement direction; neutral grapple defaults to forward. Finisher has its own binding: `G` on keyboard, left stick press on gamepad, and a touch button. All three input paths request actions through the same validated server methods.
 
 ## Repository layout
 
@@ -67,7 +67,7 @@ src/
 └── client/
     ├── Controllers/      Input, HUD, match, data, and shop flows
     ├── Systems/          Animation, camera, audio, lighting, pyro
-    └── UI/               Interface lookup
+    └── UI/               Interface lookup and pin timing prompt
 ```
 
 Knit handles service and controller lifecycle. Gameplay rules sit outside the framework-facing methods. Wally manages Knit, Promise, Trove, Signal, and ProfileStore; Rokit pins the development tools. Rojo maps the filesystem into the Roblox DataModel. The [runtime asset contract](docs/RUNTIME_ASSETS.md) documents the tags, attributes, and presentation assets that connect this code to a Studio place.
@@ -98,7 +98,7 @@ rojo build default.project.json -o ProWrestlingLeagues.rbxlx
 rojo build test.project.json -o ProWrestlingLeaguesTests.rbxlx
 ```
 
-The isolated TestEZ place covers match state, reward eligibility and award integration, movement plausibility, reversals, pin timing, and recovery cancellation. On Windows, the checked-in runner builds the test place, runs it in Studio, and fails if the passing result is missing:
+The isolated TestEZ place covers match state, reward eligibility and award integration, movement plausibility, strike impact timing, weapon rollback, reversals, pin timing, player data, and recovery cancellation. On Windows, the checked-in runner builds the test place, runs it in Studio, and fails if the passing result is missing:
 
 ```powershell
 .\tests\RunStudioTests.ps1
@@ -127,6 +127,6 @@ The source tree is the reviewable application layer; the [live Roblox game](http
 - [Architecture](docs/ARCHITECTURE.md): module boundaries, state ownership, and cleanup.
 - [Review guide](docs/REVIEW_GUIDE.md): suggested reading order and invariants to check.
 - [Runtime assets](docs/RUNTIME_ASSETS.md): arena, weapon, animation, and entrance contracts.
-- [Refactor notes](docs/REFACTOR_NOTES.md): source organization and redesign decisions.
+- [Engineering notes](docs/ENGINEERING_NOTES.md): source organization and design decisions.
 
 **Note:** This repository presents the Pro Wrestling Leagues code as a code portfolio. My day-to-day contribution history is tied to a different GitHub account for organizational clarity and client privacy. The source here is the result of that work, so this account's commit history does not represent the game's full development history.

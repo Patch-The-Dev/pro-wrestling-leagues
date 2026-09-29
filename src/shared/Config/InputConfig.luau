@@ -3,6 +3,7 @@
 local InputConfig = {
 	Attack = Enum.UserInputType.MouseButton1,
 	Grapple = Enum.KeyCode.E,
+	Finisher = Enum.KeyCode.G,
 	Context = Enum.KeyCode.Q,
 	Pin = Enum.KeyCode.F,
 	RunningAttack = Enum.KeyCode.R,
@@ -14,6 +15,7 @@ local InputConfig = {
 	Gamepad = {
 		Attack = Enum.KeyCode.ButtonR2,
 		Grapple = Enum.KeyCode.ButtonX,
+		Finisher = Enum.KeyCode.ButtonL3,
 		Context = Enum.KeyCode.ButtonB,
 		Pin = Enum.KeyCode.ButtonY,
 		RunningAttack = Enum.KeyCode.ButtonR1,

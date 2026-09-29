@@ -63,6 +63,7 @@ export type Dependencies = {
 	DataSource: DataSource,
 	MatchSource: MatchSource,
 	EmitAction: EmitAction,
+	EmitActionStarted: EmitAction,
 	EmitGrappleWindow: EmitGrappleWindow,
 	EmitPinPrompt: EmitPinPrompt,
 	EmitPinResolved: EmitPinResolved,
@@ -148,6 +149,16 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 				dependencies.EmitAction(target, event)
 			end
 		end,
+		EmitStarted = function(attacker, event)
+			dependencies.EmitActionStarted(attacker, event)
+			for _, opponent in dependencies.MatchSource:GetOpponents(attacker) do
+				dependencies.EmitActionStarted(opponent, event)
+			end
+		end,
+		CanResolve = function(player)
+			return dependencies.MatchSource:IsMatchActiveFor(player)
+				and isPlausibleCharacter(player)
+		end,
 	})
 
 	local self = setmetatable({
@@ -172,6 +183,7 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 	trove:Add(recovery)
 	trove:Add(grapples)
 	trove:Add(pins)
+	trove:Add(strikes)
 
 	local function bindPlayer(player: Player)
 		trove:Connect(player.CharacterAdded, function(character)

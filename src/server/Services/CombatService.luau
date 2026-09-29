@@ -17,6 +17,7 @@ type CombatCoordinator = CombatCoordinatorModule.CombatCoordinator
 local CombatService = Knit.CreateService({
 	Name = "CombatService",
 	Client = {
+		ActionStarted = Knit.CreateSignal(),
 		ActionResolved = Knit.CreateSignal(),
 		GrappleWindow = Knit.CreateSignal(),
 		PinPrompt = Knit.CreateSignal(),
@@ -39,6 +40,9 @@ function CombatService:KnitStart()
 		MatchSource = matchService,
 		EmitAction = function(recipient, event)
 			self.Client.ActionResolved:Fire(recipient, event)
+		end,
+		EmitActionStarted = function(recipient, event)
+			self.Client.ActionStarted:Fire(recipient, event)
 		end,
 		EmitGrappleWindow = function(recipient, sessionId, endsAt)
 			self.Client.GrappleWindow:Fire(recipient, sessionId, endsAt)

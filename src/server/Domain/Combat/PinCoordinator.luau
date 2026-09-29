@@ -3,6 +3,7 @@
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local CombatantModule = require(script.Parent.Combatant)
 local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 local PinSessionModule = require(script.Parent.PinSession)
@@ -112,7 +113,20 @@ end
 
 function PinCoordinator:Start(pinner: Player, victim: Player): boolean
 	local id = HttpService:GenerateGUID(false)
-	local session = PinSessionModule.new(id, pinner, victim)
+	local pingSucceeded, roundTripSeconds = pcall(function()
+		return victim:GetNetworkPing()
+	end)
+	local latencyAllowance = if pingSucceeded
+			and type(roundTripSeconds) == "number"
+			and roundTripSeconds == roundTripSeconds
+			and roundTripSeconds ~= math.huge
+		then math.clamp(
+			roundTripSeconds * 0.5,
+			0,
+			CombatConfig.Pin.MaximumOneWayLatencyCompensationSeconds
+		)
+		else 0
+	local session = PinSessionModule.new(id, pinner, victim, latencyAllowance)
 	self._sessions[id] = session
 	self:_schedulePrompt(id, session)
 	return true

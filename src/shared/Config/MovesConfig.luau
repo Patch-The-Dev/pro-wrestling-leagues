@@ -10,6 +10,7 @@ type MoveDefinition = {
 	DisplayName: string,
 	Category: MoveCategory,
 	Duration: number,
+	ImpactSeconds: number?,
 	Damage: DamageSpec,
 }
 
@@ -23,12 +24,19 @@ local STANDARD_GRAPPLE: DamageSpec = {
 
 local definitions: { [string]: MoveDefinition } = {}
 
-local function register(id: string, category: MoveCategory, duration: number, damage: DamageSpec)
+local function register(
+	id: string,
+	category: MoveCategory,
+	duration: number,
+	damage: DamageSpec,
+	impactSeconds: number?
+)
 	definitions[id] = {
 		Id = id,
 		DisplayName = id,
 		Category = category,
 		Duration = duration,
+		ImpactSeconds = impactSeconds,
 		Damage = damage,
 	}
 end
@@ -39,28 +47,28 @@ register("Left Punch", "Attack", 0.45, {
 	AttackerFinisher = 2,
 	VictimFinisher = 1,
 	StunSeconds = 0.3,
-})
+}, 0.18)
 register("Right Punch", "Attack", 0.45, {
 	HealthDamage = 3,
 	PoiseDamage = 5,
 	AttackerFinisher = 2,
 	VictimFinisher = 1,
 	StunSeconds = 0.3,
-})
+}, 0.18)
 register("Clothesline", "RunningAttack", 0.8, {
 	HealthDamage = 6,
 	PoiseDamage = 10,
 	AttackerFinisher = 5,
 	VictimFinisher = 2,
 	StunSeconds = 0.85,
-})
+}, 0.34)
 register("Dive", "TurnbuckleAttack", 1.1, {
 	HealthDamage = 12,
 	PoiseDamage = 25,
 	AttackerFinisher = 10,
 	VictimFinisher = 3,
 	StunSeconds = 1.25,
-})
+}, 0.48)
 register("Raise Hands", "Taunt", 1.25, {
 	HealthDamage = 0,
 	PoiseDamage = 0,

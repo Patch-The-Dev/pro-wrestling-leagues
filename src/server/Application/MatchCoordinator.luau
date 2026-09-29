@@ -13,6 +13,7 @@ local Trove = require(ReplicatedStorage.Packages.Trove)
 local ArenaRegistryModule = require(script.Parent.Parent.Components.ArenaRegistry)
 local CharacterAdapter = require(script.Parent.Parent.Adapters.CharacterAdapter)
 local MatchSessionModule = require(script.Parent.Parent.Domain.Match.MatchSession)
+local RewardCooldownModule = require(script.Parent.Parent.Domain.Economy.RewardCooldown)
 local RewardPolicy = require(script.Parent.Parent.Domain.Economy.RewardPolicy)
 
 type ArenaRegistry = ArenaRegistryModule.ArenaRegistry
@@ -20,6 +21,7 @@ type MatchEndReason = MatchTypes.MatchEndReason
 type MatchResult = MatchTypes.MatchResult
 type MatchSession = MatchSessionModule.MatchSession
 type MatchUpdate = NetworkTypes.MatchUpdate
+type RewardCooldown = RewardCooldownModule.RewardCooldown
 
 type DataSource = {
 	IsLoaded: (self: DataSource, player: Player) -> boolean,
@@ -79,7 +81,7 @@ export type MatchCoordinator = typeof(setmetatable(
 		_queue: { Player },
 		_matchesByPlayer: { [Player]: MatchSession },
 		_sessions: { [string]: MatchSession },
-		_lastRewardedPairAt: { [string]: number },
+		_rewardCooldown: RewardCooldown,
 	},
 	{} :: typeof(MatchCoordinator)
 ))
@@ -87,6 +89,7 @@ export type MatchCoordinator = typeof(setmetatable(
 function MatchCoordinator.new(dependencies: Dependencies): MatchCoordinator
 	local trove = Trove.new()
 	local arenaRegistry = ArenaRegistryModule.new()
+	local rewardCooldown = RewardCooldownModule.new()
 
 	local self = setmetatable({
 		_trove = trove,
@@ -100,10 +103,11 @@ function MatchCoordinator.new(dependencies: Dependencies): MatchCoordinator
 		_queue = {},
 		_matchesByPlayer = {},
 		_sessions = {},
-		_lastRewardedPairAt = {},
+		_rewardCooldown = rewardCooldown,
 	}, MatchCoordinator)
 
 	trove:Add(arenaRegistry)
+	trove:Add(rewardCooldown)
 	trove:Connect(Players.PlayerRemoving, function(player)
 		self:_handlePlayerRemoving(player)
 	end)
@@ -267,12 +271,6 @@ function MatchCoordinator:_createMatch(players: { Player }): boolean
 	return true
 end
 
-local function pairKey(first: Player, second: Player): string
-	local low = math.min(first.UserId, second.UserId)
-	local high = math.max(first.UserId, second.UserId)
-	return `{low}:{high}`
-end
-
 function MatchCoordinator:_award(player: Player, didWin: boolean, matchId: string)
 	local succeeded, awarded = pcall(function()
 		return self._economySource:ApplyMatchReward(player, didWin)
@@ -424,21 +422,10 @@ function MatchCoordinator:_finishSession(
 
 	if winner ~= nil and loser ~= nil then
 		local now = workspace:GetServerTimeNow()
-		for oldKey, rewardedAt in self._lastRewardedPairAt do
-			if now - rewardedAt >= MatchConfig.RepeatOpponentRewardCooldownSeconds then
-				self._lastRewardedPairAt[oldKey] = nil
-			end
-		end
-		local key = pairKey(winner, loser)
 		if
-			RewardPolicy.IsEligible(
-				reason,
-				result.DurationSeconds,
-				self._lastRewardedPairAt[key],
-				now
-			)
+			RewardPolicy.IsEligible(reason, result.DurationSeconds)
+			and self._rewardCooldown:TryClaim(winner.UserId, loser.UserId, now)
 		then
-			self._lastRewardedPairAt[key] = now
 			self:_award(winner, true, session.Id)
 			self:_award(loser, false, session.Id)
 		end
@@ -530,7 +517,6 @@ function MatchCoordinator:Destroy()
 		session:Destroy()
 	end
 	table.clear(self._sessions)
-	table.clear(self._lastRewardedPairAt)
 	table.clear(self._matchesByPlayer)
 	table.clear(self._queue)
 	self._trove:Destroy()

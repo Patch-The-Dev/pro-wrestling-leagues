@@ -77,6 +77,11 @@ function CombatRules.GetMoveDuration(moveId: string): number?
 	return if move ~= nil then move.Duration else nil
 end
 
+function CombatRules.GetImpactDelay(moveId: string): number?
+	local move = MovesConfig.Get(moveId)
+	return if move ~= nil then move.ImpactSeconds else nil
+end
+
 function CombatRules.CanStartAction(state: CombatState, action: CombatAction): boolean
 	if action == "TurnbuckleAttack" then
 		return state == "SittingOnTurnbuckle"

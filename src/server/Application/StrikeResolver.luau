@@ -5,6 +5,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
+local Promise = require(ReplicatedStorage.Packages.Promise)
+local Trove = require(ReplicatedStorage.Packages.Trove)
 
 local ActionBudgetModule = require(script.Parent.Parent.Domain.Combat.ActionBudget)
 local CharacterAdapter = require(script.Parent.Parent.Adapters.CharacterAdapter)
@@ -28,6 +30,8 @@ type DataSource = {
 type GetCombatant = (player: Player) -> Combatant?
 type FindTarget = (player: Player, range: number) -> Player?
 type EmitToParticipants = (attacker: Player, target: Player?, event: ResolvedAction) -> ()
+type EmitStarted = (attacker: Player, event: ResolvedAction) -> ()
+type CanResolve = (attacker: Player) -> boolean
 
 export type Dependencies = {
 	DataSource: DataSource,
@@ -36,6 +40,8 @@ export type Dependencies = {
 	GetCombatant: GetCombatant,
 	FindTarget: FindTarget,
 	EmitToParticipants: EmitToParticipants,
+	EmitStarted: EmitStarted,
+	CanResolve: CanResolve,
 }
 
 local StrikeResolver = {}
@@ -43,12 +49,15 @@ StrikeResolver.__index = StrikeResolver
 
 export type StrikeResolver = typeof(setmetatable(
 	{} :: {
+		_trove: typeof(Trove.new()),
 		_dataSource: DataSource,
 		_budget: ActionBudget,
 		_recovery: RecoveryScheduler,
 		_getCombatant: GetCombatant,
 		_findTarget: FindTarget,
 		_emitToParticipants: EmitToParticipants,
+		_emitStarted: EmitStarted,
+		_canResolve: CanResolve,
 	},
 	{} :: typeof(StrikeResolver)
 ))
@@ -64,13 +73,23 @@ end
 
 function StrikeResolver.new(dependencies: Dependencies): StrikeResolver
 	return setmetatable({
+		_trove = Trove.new(),
 		_dataSource = dependencies.DataSource,
 		_budget = dependencies.Budget,
 		_recovery = dependencies.Recovery,
 		_getCombatant = dependencies.GetCombatant,
 		_findTarget = dependencies.FindTarget,
 		_emitToParticipants = dependencies.EmitToParticipants,
+		_emitStarted = dependencies.EmitStarted,
+		_canResolve = dependencies.CanResolve,
 	}, StrikeResolver)
+end
+
+function StrikeResolver:_emitResolved(attacker: Player, target: Player?, event: ResolvedAction)
+	local emitted, message = pcall(self._emitToParticipants, attacker, target, event)
+	if not emitted then
+		warn(`Combat presentation failed for user {attacker.UserId}: {tostring(message)}`)
+	end
 end
 
 function StrikeResolver:Request(
@@ -91,7 +110,8 @@ function StrikeResolver:Request(
 
 	local damage = CombatRules.GetDamage(moveId)
 	local duration = CombatRules.GetMoveDuration(moveId)
-	if damage == nil or duration == nil then
+	local impactSeconds = if action == "Taunt" then 0 else CombatRules.GetImpactDelay(moveId)
+	if damage == nil or duration == nil or impactSeconds == nil or impactSeconds >= duration then
 		return false, "Move configuration is missing"
 	end
 
@@ -99,12 +119,6 @@ function StrikeResolver:Request(
 	if not combatant:CanSetState(actionState) then
 		return false, "State transition rejected"
 	end
-
-	local range = if action == "TurnbuckleAttack"
-		then CombatConfig.Targeting.GrappleRange + 3
-		else CombatConfig.Targeting.AttackRange
-	local targetPlayer = if action == "Taunt" then nil else self._findTarget(player, range)
-	local targetCombatant = if targetPlayer ~= nil then self._getCombatant(targetPlayer) else nil
 
 	if not self._budget:Commit(player, combatant, action) then
 		return false, "Action resources changed before commit"
@@ -118,22 +132,53 @@ function StrikeResolver:Request(
 	end
 	combatant:SetState(actionState)
 
-	if action == "Taunt" then
-		combatant:AddFinisher(damage.AttackerFinisher)
-	elseif targetCombatant ~= nil then
-		combatant:AddFinisher(damage.AttackerFinisher)
-		targetCombatant:ApplyDamage(damage)
-		self._recovery:ScheduleVictim(targetCombatant, damage.StunSeconds)
-	end
-
 	local event: ResolvedAction = {
 		Action = action,
 		MoveId = moveId,
 		AttackerUserId = player.UserId,
-		TargetUserId = if targetPlayer ~= nil then targetPlayer.UserId else nil,
 		Sequence = sequence,
 	}
-	self._emitToParticipants(player, targetPlayer, event)
+	if action == "Taunt" then
+		combatant:AddFinisher(damage.AttackerFinisher)
+		self:_emitResolved(player, nil, event)
+	else
+		local started, startMessage = pcall(self._emitStarted, player, event)
+		if not started then
+			warn(
+				`Combat start presentation failed for user {player.UserId}: {tostring(startMessage)}`
+			)
+		end
+		local range = if action == "TurnbuckleAttack"
+			then CombatConfig.Targeting.GrappleRange + 3
+			else CombatConfig.Targeting.AttackRange
+		local impact = Promise.delay(impactSeconds):andThen(function()
+			if
+				self._getCombatant(player) ~= combatant
+				or combatant:GetState() ~= actionState
+				or not self._canResolve(player)
+			then
+				return
+			end
+			local targetPlayer: Player? = self._findTarget(player, range)
+			local targetCombatant = if targetPlayer ~= nil
+				then self._getCombatant(targetPlayer)
+				else nil
+			if
+				targetPlayer ~= nil
+				and targetCombatant ~= nil
+				and targetCombatant:GetState() ~= "Dead"
+			then
+				combatant:AddFinisher(damage.AttackerFinisher)
+				targetCombatant:ApplyDamage(damage)
+				self._recovery:ScheduleVictim(targetCombatant, damage.StunSeconds)
+				event.TargetUserId = targetPlayer.UserId
+			else
+				targetPlayer = nil
+			end
+			self:_emitResolved(player, targetPlayer, event)
+		end)
+		self._trove:AddPromise(impact)
+	end
 	self._recovery:ScheduleState(combatant, actionState, "Roaming", duration)
 	return true, nil
 end
@@ -160,8 +205,12 @@ function StrikeResolver:ApplyWeaponAttack(
 		AttackerUserId = player.UserId,
 		TargetUserId = targetPlayer.UserId,
 	}
-	self._emitToParticipants(player, targetPlayer, event)
+	self:_emitResolved(player, targetPlayer, event)
 	return true
+end
+
+function StrikeResolver:Destroy()
+	self._trove:Destroy()
 end
 
 return StrikeResolver

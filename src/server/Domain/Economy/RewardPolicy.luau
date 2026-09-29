@@ -17,20 +17,14 @@ type Reward = {
 
 local RewardPolicy = {}
 
-function RewardPolicy.IsEligible(
-	reason: MatchEndReason,
-	durationSeconds: number,
-	lastRewardedAt: number?,
-	now: number
-): boolean
+function RewardPolicy.IsEligible(reason: MatchEndReason, durationSeconds: number): boolean
 	if reason == "Vote" or reason == "Cancelled" then
 		return false
 	end
 	if durationSeconds < MatchConfig.MinimumRewardDurationSeconds then
 		return false
 	end
-	return lastRewardedAt == nil
-		or now - lastRewardedAt >= MatchConfig.RepeatOpponentRewardCooldownSeconds
+	return true
 end
 
 function RewardPolicy.ForMatchOutcome(didWin: boolean): Reward

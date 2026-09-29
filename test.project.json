@@ -32,6 +32,9 @@
         },
         "Persistence": {
           "$path": "src/server/Persistence"
+        },
+        "Services": {
+          "$path": "src/server/Services"
         }
       },
       "Tests": {

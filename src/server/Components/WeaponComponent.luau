@@ -2,6 +2,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 
 type DamageSpec = CombatTypes.DamageSpec
@@ -21,9 +22,22 @@ export type WeaponComponent = typeof(setmetatable(
 		UseCooldown: number,
 		_worldParent: Instance?,
 		_lastUsedAt: number,
+		_useRevision: number,
 	},
 	WeaponComponent
 ))
+
+local function boundedNumber(
+	value: unknown,
+	fallback: number,
+	minimum: number,
+	maximum: number
+): number
+	if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
+		return fallback
+	end
+	return math.clamp(value, minimum, maximum)
+end
 
 function WeaponComponent.new(tool: Tool, networkId: string): WeaponComponent
 	local maxDurability = tool:GetAttribute("MaxDurability")
@@ -33,12 +47,10 @@ function WeaponComponent.new(tool: Tool, networkId: string): WeaponComponent
 	local useCooldown = tool:GetAttribute("UseCooldown")
 	local definitionId = tool:GetAttribute("WeaponId")
 
-	local resolvedMaxDurability = if type(maxDurability) == "number"
-		then math.max(1, math.floor(maxDurability))
-		else 5
-	local resolvedDurability = if type(initialDurability) == "number"
-		then math.clamp(math.floor(initialDurability), 0, resolvedMaxDurability)
-		else resolvedMaxDurability
+	local resolvedMaxDurability = math.floor(boundedNumber(maxDurability, 5, 1, 1000))
+	local resolvedDurability = math.floor(
+		boundedNumber(initialDurability, resolvedMaxDurability, 0, resolvedMaxDurability)
+	)
 
 	local self = setmetatable({
 		Instance = tool,
@@ -48,11 +60,12 @@ function WeaponComponent.new(tool: Tool, networkId: string): WeaponComponent
 			else tool.Name,
 		MaxDurability = resolvedMaxDurability,
 		Durability = resolvedDurability,
-		Damage = if type(damage) == "number" then math.max(0, damage) else 8,
-		PoiseDamage = if type(poiseDamage) == "number" then math.max(0, poiseDamage) else 15,
-		UseCooldown = if type(useCooldown) == "number" then math.max(0.1, useCooldown) else 0.65,
+		Damage = boundedNumber(damage, 8, 0, CombatConfig.MaxHealth),
+		PoiseDamage = boundedNumber(poiseDamage, 15, 0, CombatConfig.MaxPoise),
+		UseCooldown = boundedNumber(useCooldown, 0.65, 0.1, 10),
 		_worldParent = tool.Parent,
 		_lastUsedAt = -math.huge,
+		_useRevision = 0,
 	}, WeaponComponent)
 
 	if self.Durability <= 0 then
@@ -145,11 +158,13 @@ function WeaponComponent:Drop(player: Player): boolean
 	return true
 end
 
-function WeaponComponent:ConsumeUse(): boolean
+function WeaponComponent:ConsumeUse(): (boolean, number?, number?)
 	if not self:CanUse() then
-		return false
+		return false, nil, nil
 	end
 
+	local previousUsedAt = self._lastUsedAt
+	self._useRevision += 1
 	self._lastUsedAt = os.clock()
 	self.Durability -= 1
 	self:_replicate()
@@ -158,10 +173,23 @@ function WeaponComponent:ConsumeUse(): boolean
 		self.Instance.Enabled = false
 	end
 
+	return true, previousUsedAt, self._useRevision
+end
+
+function WeaponComponent:RollbackUse(previousUsedAt: number, revision: number): boolean
+	if revision ~= self._useRevision or self.Durability >= self.MaxDurability then
+		return false
+	end
+	self._useRevision += 1
+	self._lastUsedAt = previousUsedAt
+	self.Durability += 1
+	self.Instance.Enabled = true
+	self:_replicate()
 	return true
 end
 
 function WeaponComponent:Reset()
+	self._useRevision += 1
 	self.Durability = self.MaxDurability
 	self._lastUsedAt = -math.huge
 	self.Instance.Enabled = true

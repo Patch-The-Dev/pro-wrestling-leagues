@@ -42,5 +42,24 @@ return function()
 			expect(session:NextPrompt()).to.equal(nil)
 			session:Destroy()
 		end)
+
+		it("allows bounded server-measured latency only after the target time", function()
+			local session = PinSession.new("pin", pinner, victim, 0.1)
+			session:NextPrompt()
+			session._targetTime = workspace:GetServerTimeNow()
+				- CombatConfig.Pin.InputWindowSeconds
+				- 0.05
+			expect(session:SubmitInput(victim)).to.equal(true)
+			session:Destroy()
+
+			local capped = PinSession.new("pin", pinner, victim, 1)
+			capped:NextPrompt()
+			capped._targetTime = workspace:GetServerTimeNow()
+				- CombatConfig.Pin.InputWindowSeconds
+				- CombatConfig.Pin.MaximumOneWayLatencyCompensationSeconds
+				- 0.05
+			expect(capped:SubmitInput(victim)).to.equal(false)
+			capped:Destroy()
+		end)
 	end)
 end

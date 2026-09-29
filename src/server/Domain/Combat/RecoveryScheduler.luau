@@ -60,6 +60,7 @@ function RecoveryScheduler:ScheduleState(
 		end
 	end)
 	self._trove:AddPromise(promise)
+	return promise
 end
 
 function RecoveryScheduler:ScheduleVictim(combatant: Combatant, stunSeconds: number)

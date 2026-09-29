@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AnimationSystem = require(script.Parent.Parent.Systems.AnimationSystem)
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local PinPromptView = require(script.Parent.Parent.UI.PinPromptView)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Trove = require(ReplicatedStorage.Packages.Trove)
@@ -18,13 +19,23 @@ function CombatController:KnitInit()
 	self._activeGrappleSession = nil
 	self._activePinSession = nil
 	self._animations = AnimationSystem.new()
+	self._pinPrompt = PinPromptView.new()
 	self._trove:Add(self.ActionResolved)
 	self._trove:Add(self._animations)
+	self._trove:Add(self._pinPrompt)
 end
 
 function CombatController:KnitStart()
 	self._combatService = Knit.GetService("CombatService")
 	local input = Knit.GetController("InputController")
+	local matchController = Knit.GetController("MatchController")
+	self._trove:Connect(matchController.Changed, function(update)
+		if update.State ~= "Active" then
+			self._activePinSession = nil
+			self._activeGrappleSession = nil
+			self._pinPrompt:Hide()
+		end
+	end)
 
 	self._trove:Connect(input.ActionRequested, function(action)
 		self._combatService:RequestAction(action):catch(function(err)
@@ -50,8 +61,20 @@ function CombatController:KnitStart()
 		end
 	end)
 
+	self._trove:Connect(self._combatService.ActionStarted, function(event)
+		self._animations:PlayStartedAction(event)
+	end)
+
 	self._trove:Connect(self._combatService.ActionResolved, function(event)
-		self._animations:PlayResolvedAction(event)
+		if
+			event.Action == "Attack"
+			or event.Action == "RunningAttack"
+			or event.Action == "TurnbuckleAttack"
+		then
+			self._animations:PlayStrikeImpact(event)
+		else
+			self._animations:PlayResolvedAction(event)
+		end
 		self.ActionResolved:Fire(event)
 	end)
 
@@ -66,13 +89,15 @@ function CombatController:KnitStart()
 		self._trove:AddPromise(expiry)
 	end)
 
-	self._trove:Connect(self._combatService.PinPrompt, function(sessionId, _targetTime)
+	self._trove:Connect(self._combatService.PinPrompt, function(sessionId, targetTime)
 		self._activePinSession = sessionId
+		self._pinPrompt:Show(targetTime)
 	end)
 
 	self._trove:Connect(self._combatService.PinResolved, function(sessionId)
 		if self._activePinSession == sessionId then
 			self._activePinSession = nil
+			self._pinPrompt:Hide()
 		end
 	end)
 end

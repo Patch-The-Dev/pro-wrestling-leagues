@@ -27,11 +27,11 @@ Knit is the application boundary, not the gameplay model. Services validate netw
 - `ActionBudget` validates stamina, cooldowns, and attack-chain state before committing resources.
 - `RecoveryScheduler` owns delayed state recovery.
 - `GrappleCoordinator` owns reversal windows and grapple resolution.
-- `PinCoordinator` owns server-timed pin prompts and match resolution.
+- `PinCoordinator` owns server-timed pin prompts and match resolution. `PinPromptView` renders the target time, while the server accepts only bounded latency compensation measured through `Player:GetNetworkPing()`.
 - `Targeting` resolves opponents from the active match, distance, health, facing, and line of sight.
-- `StrikeResolver` owns strike and weapon-hit resolution after the coordinator validates the use case.
+- `StrikeResolver` owns strike and weapon-hit resolution after the coordinator validates the use case. Strikes use configured windup times, then recheck the match, attacker, and target before applying damage.
 
-The validation order is intentional. An action is fully checked before stamina, cooldown, durability, or state is committed.
+The validation order is intentional. A strike commits stamina and cooldown when it starts, then checks the target again at impact. Weapon use reserves durability before damage and rolls it back if the attack cannot land.
 
 ## Match lifecycle
 
@@ -53,7 +53,7 @@ Clients send intent such as attack, grapple direction, pin input, purchase, or l
 
 Roblox may give clients network ownership of their characters. `MovementHistory` samples server-observed positions, rejects large jumps, and requires sampled travel plus bounded velocity for running actions. Target selection also excludes candidates temporarily blocked by this check. This constrains obvious movement spoofing; it does not make replicated transforms fully authoritative. The thresholds in `CombatConfig` should be tuned against live latency and movement data.
 
-Rewards require a minimum active duration and a same-server cooldown for the same opponent pair. This reduces quick forfeit and rematch farming. The cooldown is in server memory, so it is not a cross-server fraud limit. Failed profile updates and balance notifications are reported separately, avoiding a false failure after a successful balance mutation.
+Rewards require a minimum active duration and an atomic MemoryStore cooldown claim for the same opponent pair across servers. This reduces quick forfeit, rematch, and server-hop farming. A shared-store failure withholds the payout and is logged rather than silently falling back to a local limit. Studio tests use an in-memory claim. Failed profile updates and balance notifications are reported separately, avoiding a false failure after a successful balance mutation.
 
 ## State ownership
 

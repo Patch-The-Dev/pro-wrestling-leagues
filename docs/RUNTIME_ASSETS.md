@@ -22,6 +22,8 @@ Combat presentation resolves animations from `ReplicatedStorage/Assets/Animation
 
 Actions without a move ID use their action name. Weapon attacks use the configured `WeaponId`.
 
+The client creates the pin timing prompt in `PinPromptView`. No authored `PinPrompt` GUI is required. Strike impact times are configured in `MovesConfig`; attacker animation starts when the server accepts the strike, and victim presentation follows the server impact event.
+
 ## Arenas
 
 Tag each arena model with `WrestlingArena` and set:

@@ -17,6 +17,7 @@ export type PinSession = typeof(setmetatable(
 		_trove: typeof(Trove.new()),
 		_promptIndex: number,
 		_targetTime: number?,
+		_latencyAllowanceSeconds: number,
 		_misses: number,
 		_finished: boolean,
 		_escaped: boolean,
@@ -24,7 +25,12 @@ export type PinSession = typeof(setmetatable(
 	{} :: typeof(PinSession)
 ))
 
-function PinSession.new(id: string, pinner: Player, victim: Player): PinSession
+function PinSession.new(
+	id: string,
+	pinner: Player,
+	victim: Player,
+	latencyAllowanceSeconds: number?
+): PinSession
 	return setmetatable({
 		Id = id,
 		Pinner = pinner,
@@ -32,6 +38,11 @@ function PinSession.new(id: string, pinner: Player, victim: Player): PinSession
 		_trove = Trove.new(),
 		_promptIndex = 0,
 		_targetTime = nil,
+		_latencyAllowanceSeconds = math.clamp(
+			latencyAllowanceSeconds or 0,
+			0,
+			CombatConfig.Pin.MaximumOneWayLatencyCompensationSeconds
+		),
 		_misses = 0,
 		_finished = false,
 		_escaped = false,
@@ -65,8 +76,11 @@ function PinSession:SubmitInput(player: Player): boolean
 		return false
 	end
 
-	local errorSeconds = math.abs(workspace:GetServerTimeNow() - self._targetTime)
-	if errorSeconds > CombatConfig.Pin.InputWindowSeconds then
+	local arrivalOffset = workspace:GetServerTimeNow() - self._targetTime
+	if
+		arrivalOffset < -CombatConfig.Pin.InputWindowSeconds
+		or arrivalOffset > CombatConfig.Pin.InputWindowSeconds + self._latencyAllowanceSeconds
+	then
 		return false
 	end
 
@@ -95,7 +109,10 @@ function PinSession:AwaitPromptExpiry()
 
 	local delaySeconds = math.max(
 		0,
-		self._targetTime - workspace:GetServerTimeNow() + CombatConfig.Pin.InputWindowSeconds
+		self._targetTime
+			- workspace:GetServerTimeNow()
+			+ CombatConfig.Pin.InputWindowSeconds
+			+ self._latencyAllowanceSeconds
 	)
 	local timer = Promise.delay(delaySeconds)
 	self._trove:AddPromise(timer)
