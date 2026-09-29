@@ -11,6 +11,7 @@ local MatchConfig = {
 		+ math.max(EntranceConfig.CameraFocusSeconds, EntranceConfig.LightingHoldSeconds)
 		+ 0.5,
 	PostMatchSeconds = 6,
+	SettlementWaitSeconds = 25,
 	VoteToEndFraction = 1,
 	DefaultArenaId = "TrainingRing",
 	MinimumRewardDurationSeconds = 30,

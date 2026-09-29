@@ -138,6 +138,14 @@ function PlayerRepository:IsLoaded(player: Player): boolean
 	return self:Get(player) ~= nil
 end
 
+function PlayerRepository:GetLoadedPlayers(): { Player }
+	local players: { Player } = {}
+	for player in self._profiles do
+		table.insert(players, player)
+	end
+	return players
+end
+
 function PlayerRepository:Release(player: Player)
 	local profile = self._profiles[player]
 	if profile == nil then

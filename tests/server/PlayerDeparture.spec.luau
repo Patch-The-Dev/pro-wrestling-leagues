@@ -60,5 +60,65 @@ return function()
 			expect(released).to.equal(true)
 			departure:Destroy()
 		end)
+
+		it("settles every loaded profile before the shutdown release", function()
+			local first = { UserId = 11 } :: any
+			local second = { UserId = 22 } :: any
+			local loaded = { first, second }
+			local callbacks = 0
+			local releases = 0
+			local releasedAll = false
+			local done = false
+			local resume: (() -> ())? = nil
+			local gate = Promise.new(function(resolve)
+				resume = resolve
+			end)
+			local departure = PlayerDeparture.new({
+				GetLoadedPlayers = function()
+					return table.clone(loaded)
+				end,
+				Release = function(_, player)
+					releases += 1
+					local index = table.find(loaded, player)
+					if index ~= nil then
+						table.remove(loaded, index)
+					end
+				end,
+				ReleaseAll = function()
+					releasedAll = true
+				end,
+			} :: any)
+			departure:SetBeforeRelease(function()
+				callbacks += 1
+				gate:await()
+			end)
+			task.defer(function()
+				departure:Release(first)
+			end)
+			local deadline = os.clock() + 3
+			while callbacks < 1 and os.clock() < deadline do
+				task.wait(0.02)
+			end
+			expect(callbacks).to.equal(1)
+			task.defer(function()
+				departure:ReleaseAll()
+				done = true
+			end)
+			while callbacks < 2 and os.clock() < deadline do
+				task.wait(0.02)
+			end
+			expect(callbacks).to.equal(2)
+			expect(releases).to.equal(0)
+			expect(releasedAll).to.equal(false)
+			assert(resume ~= nil, "Shutdown settlement gate was not created")
+			resume()
+			while not done and os.clock() < deadline do
+				task.wait(0.02)
+			end
+			expect(done).to.equal(true)
+			expect(releases).to.equal(2)
+			expect(releasedAll).to.equal(true)
+			departure:Destroy()
+		end)
 	end)
 end

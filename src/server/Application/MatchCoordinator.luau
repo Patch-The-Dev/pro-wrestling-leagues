@@ -22,7 +22,11 @@ type MatchResult = MatchTypes.MatchResult
 type MatchSession = MatchSessionModule.MatchSession
 type MatchUpdate = NetworkTypes.MatchUpdate
 type RewardCooldown = RewardCooldownModule.RewardCooldown
-type Settlement = { Complete: boolean, Event: BindableEvent }
+type Settlement = {
+	Complete: boolean,
+	Cleaned: boolean,
+	Players: { Player },
+}
 
 type DataSource = {
 	IsLoaded: (self: DataSource, player: Player) -> boolean,
@@ -133,6 +137,10 @@ function MatchCoordinator:JoinQueue(player: Player): (boolean, string?)
 	if self._matchesByPlayer[player] ~= nil then
 		return false, "Already in a match"
 	end
+	local priorSettlement = self._settlementsByPlayer[player]
+	if priorSettlement ~= nil and not priorSettlement.Complete then
+		return false, "Previous match reward is still settling"
+	end
 	if not isCharacterReady(player) then
 		return false, "Character is not ready"
 	end
@@ -157,8 +165,11 @@ function MatchCoordinator:LeaveQueue(player: Player)
 end
 
 function MatchCoordinator:_isQueueReady(player: Player): boolean
+	local settlement = self._settlementsByPlayer[player]
 	return player.Parent == Players
 		and self._dataSource:IsLoaded(player)
+		and self._matchesByPlayer[player] == nil
+		and (settlement == nil or settlement.Complete)
 		and isCharacterReady(player)
 end
 
@@ -290,6 +301,53 @@ function MatchCoordinator:_award(player: Player, didWin: boolean, matchId: strin
 		end
 	end
 	warn(`Match reward failed for user {player.UserId} in match {matchId}: {tostring(lastError)}`)
+end
+
+function MatchCoordinator:_releaseSettlement(settlement: Settlement)
+	if not settlement.Complete or not settlement.Cleaned then
+		return
+	end
+	for _, player in settlement.Players do
+		if self._settlementsByPlayer[player] == settlement then
+			self._settlementsByPlayer[player] = nil
+		end
+	end
+end
+
+function MatchCoordinator:_completeSettlement(settlement: Settlement)
+	if settlement.Complete then
+		return
+	end
+	settlement.Complete = true
+	self:_releaseSettlement(settlement)
+end
+
+function MatchCoordinator:_waitForSettlement(settlement: Settlement, deadline: number)
+	while not settlement.Complete and os.clock() < deadline do
+		task.wait(0.1)
+	end
+	if not settlement.Complete then
+		warn("Match reward settlement did not finish before the profile release deadline")
+	end
+end
+
+function MatchCoordinator:_settleRewards(
+	settlement: Settlement,
+	winner: Player,
+	loser: Player,
+	matchId: string
+)
+	local succeeded, settlementError = pcall(function()
+		local now = workspace:GetServerTimeNow()
+		if self._rewardCooldown:TryClaim(winner.UserId, loser.UserId, now) then
+			self:_award(winner, true, matchId)
+			self:_award(loser, false, matchId)
+		end
+	end)
+	if not succeeded then
+		warn(`Match reward settlement failed for match {matchId}: {tostring(settlementError)}`)
+	end
+	self:_completeSettlement(settlement)
 end
 
 function MatchCoordinator:_placePlayers(session: MatchSession): boolean
@@ -431,37 +489,50 @@ function MatchCoordinator:_finishSession(
 	if not session:Finish() then
 		return false
 	end
-	local settlement: Settlement = { Complete = false, Event = Instance.new("BindableEvent") }
+	local settlement: Settlement = {
+		Complete = false,
+		Cleaned = false,
+		Players = table.clone(session.Players),
+	}
 	for _, player in session.Players do
 		self._settlementsByPlayer[player] = settlement
 	end
 
-	if winner ~= nil and loser ~= nil then
-		local now = workspace:GetServerTimeNow()
-		if
-			RewardPolicy.IsEligible(reason, result.DurationSeconds)
-			and self._rewardCooldown:TryClaim(winner.UserId, loser.UserId, now)
-		then
-			self:_award(winner, true, session.Id)
-			self:_award(loser, false, session.Id)
-		end
+	if
+		winner ~= nil
+		and loser ~= nil
+		and RewardPolicy.IsEligible(reason, result.DurationSeconds)
+	then
+		task.defer(function()
+			self:_settleRewards(settlement, winner, loser, session.Id)
+		end)
+	else
+		self:_completeSettlement(settlement)
 	end
-	settlement.Complete = true
-	settlement.Event:Fire()
-
-	for _, player in session.Players do
-		self._emitMatchChanged(player, {
-			Id = session.Id,
-			State = "Complete",
-			Result = result,
-		})
-	end
-	self._onSessionClosed(table.clone(session.Players), result)
 
 	local cleanup = Promise.delay(MatchConfig.PostMatchSeconds):andThen(function()
 		self:_cleanupSession(session)
 	end)
 	self._trove:AddPromise(cleanup)
+
+	for _, player in session.Players do
+		local notified, notificationError = pcall(self._emitMatchChanged, player, {
+			Id = session.Id,
+			State = "Complete",
+			Result = result,
+		})
+		if not notified then
+			warn(
+				`Match completion notification failed for user {player.UserId}: {tostring(
+					notificationError
+				)}`
+			)
+		end
+	end
+	local closed, closeError = pcall(self._onSessionClosed, table.clone(session.Players), result)
+	if not closed then
+		warn(`Match close callback failed for match {session.Id}: {tostring(closeError)}`)
+	end
 	return true
 end
 
@@ -497,11 +568,9 @@ function MatchCoordinator:_cleanupSession(session: MatchSession)
 	end
 	session:Destroy()
 	local settlement = self._settlementsByPlayer[session.Players[1]]
-	for _, player in session.Players do
-		self._settlementsByPlayer[player] = nil
-	end
 	if settlement ~= nil then
-		settlement.Event:Destroy()
+		settlement.Cleaned = true
+		self:_releaseSettlement(settlement)
 	end
 	self:_matchmake()
 end
@@ -522,37 +591,42 @@ function MatchCoordinator:HandlePlayerRemoving(player: Player)
 	self:LeaveQueue(player)
 
 	local session = self._matchesByPlayer[player]
-	if session == nil then
-		return
-	end
-
-	if session.State == "Active" then
-		local opponent = self:GetOpponents(player)[1]
-		if opponent ~= nil then
-			self:FinishMatch(opponent, player, "Forfeit")
-		else
-			self:_cleanupSession(session)
+	if session ~= nil then
+		if session.State == "Active" then
+			local opponent = self:GetOpponents(player)[1]
+			if opponent ~= nil then
+				self:FinishMatch(opponent, player, "Forfeit")
+			else
+				self:_cleanupSession(session)
+			end
+		elseif session.State == "Starting" then
+			self:_cancelStartingSession(session, player)
 		end
-	elseif session.State == "Starting" then
-		self:_cancelStartingSession(session, player)
 	end
 
 	local settlement = self._settlementsByPlayer[player]
 	if settlement ~= nil and not settlement.Complete then
-		settlement.Event.Event:Wait()
+		self:_waitForSettlement(settlement, os.clock() + MatchConfig.SettlementWaitSeconds)
 	end
 end
 
 function MatchCoordinator:Destroy()
+	local pending: { Settlement } = {}
+	for _, settlement in self._settlementsByPlayer do
+		if not settlement.Complete and table.find(pending, settlement) == nil then
+			table.insert(pending, settlement)
+		end
+	end
+	local deadline = os.clock() + MatchConfig.SettlementWaitSeconds
+	for _, settlement in pending do
+		self:_waitForSettlement(settlement, deadline)
+	end
 	for _, session in self._sessions do
 		session:Destroy()
 	end
 	table.clear(self._sessions)
 	table.clear(self._matchesByPlayer)
 	table.clear(self._queue)
-	for _, settlement in self._settlementsByPlayer do
-		settlement.Event:Destroy()
-	end
 	table.clear(self._settlementsByPlayer)
 	self._trove:Destroy()
 end

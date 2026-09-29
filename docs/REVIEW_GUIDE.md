@@ -18,7 +18,9 @@ This repository presents the Luau application code for Pro Wrestling Leagues. Th
 - A reward retry uses the same match ID and cannot mutate the same profile twice while that ID remains in its ledger.
 - Grapples revalidate the original target after the reversal window; stale or out-of-range targets take no damage.
 - Incapacitating combat states lock default movement and temporarily request server physics ownership.
-- A departing player's profile remains active until the match reward claim and both profile updates finish.
+- A poise break from a taunt, turnbuckle action, grapple, pin, or standing-up state reaches `Grounded`; lesser stuns do not release `Grounded` or `Pinned` fighters.
+- Clients receive match completion before the shared reward claim runs; a pending claim still blocks requeue and profile release through the bounded settlement wait.
+- A departing player's profile waits for the match reward claim and both profile updates, up to the configured settlement deadline.
 - Queueing retries when an arena becomes available.
 - Persisted equipped moves cannot grant their own unlocks.
 - A cancelled countdown cannot begin combat, and stale entrance cues cannot play after match activation.

@@ -34,15 +34,19 @@ Knit is the application boundary, not the gameplay model. Services validate netw
 
 The validation order is intentional. A strike commits stamina and cooldown when it starts, then checks the target again at impact. A grapple locks default movement during its reversal window, then revalidates the original target before resolving either the move or its reversal. Weapon use reserves durability before damage and rolls it back if the attack cannot land.
 
+Damage reactions are valid from each interruptible combat state. A poise break clears accumulated poise only after `Grounded` is accepted, and a lesser stun does not release a fighter who is already grounded or pinned.
+
 ## Match lifecycle
 
 `MatchService` is a transport facade over `Application/MatchCoordinator`. `MatchSession` owns lifecycle state while the coordinator owns queueing, arena placement, rewards, disconnect handling, and delayed cleanup. Matches do not enter `Active` unless the configured arena provides enough spawn points and both original characters remain ready through the entrance countdown. An aborted countdown releases the arena and requeues eligible players. Arena release and arena registration both retry waiting players.
+
+When a match finishes, clients receive `Complete` and combat cleanup is triggered without waiting for the deferred MemoryStore claim and profile reward updates. A pending settlement survives arena cleanup and prevents the same players from requeueing until it resolves. The settlement keeps both profiles owned while either participant departs. Server shutdown applies that same departure callback to every loaded profile. A bounded wait prevents a stalled external call from consuming the entire shutdown window; if the deadline expires, the failure is logged and reward completion cannot be guaranteed.
 
 The countdown is calculated from entrance lead-in, entrant spacing, presentation duration, and a short buffer. Entrance cues carry the match ID; the client discards stale cues and restores camera, lighting, music, and pyro on match state changes.
 
 ## Persistence
 
-`PlayerRepository` is the only module that knows ProfileStore. Services receive typed player data through `DataService`. Migrations run before reconciliation so legacy Studio-era profiles can be normalized into the current schema. `PlayerDeparture` calls match settlement before releasing a departing player's profile. Both participants wait on the same settlement if they leave while the shared reward claim is in progress. Each profile keeps the most recent 64 rewarded match IDs so in-session retries are idempotent. Failed reward updates are logged; the two profile writes are not one atomic transaction. Profile sanitization keeps an equipped move only when its unlock is owned; otherwise the slot returns to a default move.
+`PlayerRepository` is the only module that knows ProfileStore. Services receive typed player data through `DataService`. Migrations run before reconciliation so legacy Studio-era profiles can be normalized into the current schema. `PlayerDeparture` calls match settlement before releasing a departing player's profile, including during shutdown. Both participants wait on the same pending settlement if they leave while the shared reward claim is in progress, up to the configured shutdown budget. Each profile keeps the most recent 64 rewarded match IDs so in-session retries are idempotent. Failed reward updates are logged; the two profile writes are not one atomic transaction. Profile sanitization keeps an equipped move only when its unlock is owned; otherwise the slot returns to a default move.
 
 Studio uses ProfileStore mock storage by default. This keeps local testing away from live player data.
 

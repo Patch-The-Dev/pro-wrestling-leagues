@@ -58,15 +58,35 @@ local ALLOWED_TRANSITIONS: { [string]: { [string]: boolean } } = {
 	},
 	Stunned = { Roaming = true, Grounded = true, PerformingMove = true, Dead = true },
 	Grounded = { StandingUp = true, Pinned = true, Dead = true },
-	Falling = { Grounded = true, Roaming = true, Dead = true },
-	ClimbingTurnbuckle = { SittingOnTurnbuckle = true, Falling = true, Roaming = true, Dead = true },
-	SittingOnTurnbuckle = { PerformingMove = true, Falling = true, Roaming = true, Dead = true },
+	Falling = { Grounded = true, Stunned = true, Roaming = true, Dead = true },
+	ClimbingTurnbuckle = {
+		SittingOnTurnbuckle = true,
+		Falling = true,
+		Roaming = true,
+		Stunned = true,
+		Grounded = true,
+		Dead = true,
+	},
+	SittingOnTurnbuckle = {
+		PerformingMove = true,
+		Falling = true,
+		Roaming = true,
+		Stunned = true,
+		Grounded = true,
+		Dead = true,
+	},
 	Attacking = { Roaming = true, Stunned = true, Grounded = true, Dead = true },
-	Grappling = { PerformingMove = true, Roaming = true, Stunned = true, Dead = true },
+	Grappling = {
+		PerformingMove = true,
+		Roaming = true,
+		Stunned = true,
+		Grounded = true,
+		Dead = true,
+	},
 	PerformingMove = { Roaming = true, Grounded = true, Stunned = true, Dead = true },
-	Taunting = { Roaming = true, Stunned = true, Dead = true },
-	StandingUp = { Roaming = true, Dead = true },
-	Pinning = { Roaming = true, Stunned = true, Dead = true },
+	Taunting = { Roaming = true, Stunned = true, Grounded = true, Dead = true },
+	StandingUp = { Roaming = true, Stunned = true, Grounded = true, Dead = true },
+	Pinning = { Roaming = true, Stunned = true, Grounded = true, Dead = true },
 	Pinned = { Grounded = true, StandingUp = true, Dead = true },
 	Dead = {},
 }
@@ -218,10 +238,13 @@ function Combatant:ApplyDamage(spec: DamageSpec)
 
 	if self._health <= 0 then
 		self:SetState("Dead")
-	elseif self._poise >= CombatConfig.MaxPoise then
+	elseif self._poise >= CombatConfig.MaxPoise and self:SetState("Grounded") then
 		self._poise = 0
-		self:SetState("Grounded")
-	elseif spec.StunSeconds > 0 then
+	elseif
+		spec.StunSeconds > 0
+		and self:GetState() ~= "Grounded"
+		and self:GetState() ~= "Pinned"
+	then
 		self:SetState("Stunned")
 	end
 

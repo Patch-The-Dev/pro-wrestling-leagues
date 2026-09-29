@@ -12,9 +12,17 @@ return function()
 	describe("MatchCoordinator rewards", function()
 		local first = { UserId = 11 } :: any
 		local second = { UserId = 22 } :: any
+		local function waitUntil(predicate: () -> boolean)
+			local deadline = os.clock() + 3
+			while not predicate() and os.clock() < deadline do
+				task.wait(0.02)
+			end
+			expect(predicate()).to.equal(true)
+		end
 
 		local function createCoordinator()
 			local awards = {}
+			local updates = {}
 			local coordinator = MatchCoordinator.new({
 				DataSource = {
 					IsLoaded = function()
@@ -31,10 +39,12 @@ return function()
 					PlayForPlayers = function() end,
 				},
 				EmitQueueChanged = function() end,
-				EmitMatchChanged = function() end,
+				EmitMatchChanged = function(player, update)
+					table.insert(updates, { player, update })
+				end,
 				OnSessionClosed = function() end,
 			})
-			return coordinator, awards
+			return coordinator, awards, updates
 		end
 
 		local function activeSession(id: string, duration: number)
@@ -59,6 +69,9 @@ return function()
 			local firstMatch = activeSession("first", 31)
 			coordinator._sessions[firstMatch.Id] = firstMatch
 			expect(coordinator:_finishSession(firstMatch, first, second, "Pin")).to.equal(true)
+			waitUntil(function()
+				return #awards == 2
+			end)
 			expect(#awards).to.equal(2)
 			expect(awards[1][2]).to.equal(true)
 			expect(awards[2][2]).to.equal(false)
@@ -66,6 +79,10 @@ return function()
 			local rematch = activeSession("rematch", 31)
 			coordinator._sessions[rematch.Id] = rematch
 			expect(coordinator:_finishSession(rematch, second, first, "Pin")).to.equal(true)
+			waitUntil(function()
+				local settlement = coordinator._settlementsByPlayer[first]
+				return settlement ~= nil and settlement.Complete
+			end)
 			expect(#awards).to.equal(2)
 			coordinator:Destroy()
 		end)
@@ -118,7 +135,7 @@ return function()
 		end)
 
 		it("keeps both departing profiles until a yielding reward claim settles", function()
-			local coordinator, awards = createCoordinator()
+			local coordinator, awards, updates = createCoordinator()
 			local session = activeSession("disconnect", 31)
 			coordinator._sessions[session.Id] = session
 			coordinator._matchesByPlayer[first] = session
@@ -159,6 +176,7 @@ return function()
 				finished:Fire()
 			end)
 			claimStarted.Event:Wait()
+			expect(updates[1][2].State).to.equal("Complete")
 			task.defer(function()
 				departures:Release(first)
 				secondReleased = true
@@ -185,6 +203,56 @@ return function()
 			claimStarted:Destroy()
 			finished:Destroy()
 			secondDeparted:Destroy()
+		end)
+
+		it("completes the match UI before a slow claim and holds requeue after cleanup", function()
+			local coordinator, awards, updates = createCoordinator()
+			local session = activeSession("slow-claim", 31)
+			coordinator._sessions[session.Id] = session
+			coordinator._matchesByPlayer[first] = session
+			coordinator._matchesByPlayer[second] = session
+			local claimStarted = false
+			local resumeClaim: (() -> ())? = nil
+			local claimGate = Promise.new(function(resolve)
+				resumeClaim = resolve
+			end)
+			local mutableCoordinator = coordinator :: any
+			mutableCoordinator._rewardCooldown = {
+				TryClaim = function()
+					claimStarted = true
+					claimGate:await()
+					return true
+				end,
+			}
+			expect(coordinator:_finishSession(session, first, second, "Pin")).to.equal(true)
+			expect(updates[1][2].State).to.equal("Complete")
+			waitUntil(function()
+				return claimStarted
+			end)
+			coordinator:_cleanupSession(session)
+			local joined, reason = coordinator:JoinQueue(first)
+			expect(joined).to.equal(false)
+			expect(reason).to.equal("Previous match reward is still settling")
+			expect(#awards).to.equal(0)
+			local departed = false
+			task.defer(function()
+				coordinator:HandlePlayerRemoving(first)
+				departed = true
+			end)
+			RunService.Heartbeat:Wait()
+			expect(departed).to.equal(false)
+			assert(resumeClaim ~= nil, "Reward claim gate was not created")
+			resumeClaim()
+			waitUntil(function()
+				return #awards == 2
+			end)
+			waitUntil(function()
+				return coordinator._settlementsByPlayer[first] == nil
+			end)
+			waitUntil(function()
+				return departed
+			end)
+			coordinator:Destroy()
 		end)
 	end)
 end

@@ -12,6 +12,12 @@ type ShopItem = {
 	UnlockId: string,
 }
 
+local shop: { [string]: ShopItem } = {
+	["move:spinebuster"] = { Currency = "Cash", Price = 850, UnlockId = "Spinebuster" },
+	["move:piledriver"] = { Currency = "Cash", Price = 1200, UnlockId = "Piledriver" },
+	["move:spear3"] = { Currency = "Tickets", Price = 10, UnlockId = "Spear 3" },
+}
+
 local EconomyConfig = {
 	MatchRewards = {
 		Win = {
@@ -28,11 +34,7 @@ local EconomyConfig = {
 		},
 	},
 
-	Shop = {
-		["move:spinebuster"] = { Currency = "Cash", Price = 850, UnlockId = "Spinebuster" } :: ShopItem,
-		["move:piledriver"] = { Currency = "Cash", Price = 1200, UnlockId = "Piledriver" } :: ShopItem,
-		["move:spear3"] = { Currency = "Tickets", Price = 10, UnlockId = "Spear 3" } :: ShopItem,
-	},
+	Shop = shop,
 }
 
 table.freeze(EconomyConfig.MatchRewards.Win)

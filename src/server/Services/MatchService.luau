@@ -78,8 +78,8 @@ function MatchService:KnitStart()
 			self.Client.MatchChanged:Fire(player, update)
 		end,
 		OnSessionClosed = function(players, result)
-			recordMatchOutcome(players, result)
 			self.SessionClosed:Fire(players, result)
+			task.defer(recordMatchOutcome, players, result)
 		end,
 	})
 	self._coordinator = coordinator

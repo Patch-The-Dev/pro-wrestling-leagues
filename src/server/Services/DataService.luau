@@ -25,13 +25,14 @@ function DataService:KnitInit()
 	self._repository = PlayerRepository.new()
 	self._departure = PlayerDeparture.new(self._repository)
 	self._trove:Add(self._departure)
+	self._closing = false
 	self._loading = {}
 	self.Loaded = Signal.new()
 	self._trove:Add(self.Loaded)
 end
 
 function DataService:_loadPlayer(player: Player)
-	if self._loading[player] ~= nil or self._repository:IsLoaded(player) then
+	if self._closing or self._loading[player] ~= nil or self._repository:IsLoaded(player) then
 		return
 	end
 
@@ -41,7 +42,9 @@ function DataService:_loadPlayer(player: Player)
 	promise
 		:andThen(function()
 			self._loading[player] = nil
-			if player.Parent == Players then
+			if self._closing then
+				self._departure:Release(player)
+			elseif player.Parent == Players then
 				self.Loaded:Fire(player)
 				self.Client.ProfileLoaded:Fire(player)
 			end
@@ -71,6 +74,7 @@ function DataService:KnitStart()
 	end
 
 	game:BindToClose(function()
+		self._closing = true
 		self._departure:ReleaseAll()
 	end)
 end
