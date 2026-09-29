@@ -15,7 +15,7 @@ Pro Wrestling Leagues is a full-stack, solo-developed wrestling game with multip
 | Matches | [`MatchCoordinator`](src/server/Application/MatchCoordinator.luau), [`MatchSession`](src/server/Domain/Match/MatchSession.luau) | Two-player queueing, arena reservation, countdowns, results, disconnects, and cleanup |
 | Player data | [`PlayerRepository`](src/server/Persistence/PlayerRepository.luau), [`ProfileMigrations`](src/server/Persistence/ProfileMigrations.luau) | A single persistence boundary with schema migration and Studio mock storage |
 | Economy | [`EconomyService`](src/server/Services/EconomyService.luau), [`RewardPolicy`](src/server/Domain/Economy/RewardPolicy.luau) | Server-owned match rewards, prices, balances, and unlocks |
-| Presentation | [`src/client`](src/client), [`EntranceService`](src/server/Services/EntranceService.luau) | Inputs, HUD, animation, cameras, audio, lighting, and entrances kept apart from authoritative rules |
+| Presentation | [`src/client`](https://github.com/Patch-The-Dev/pro-wrestling-leagues/tree/main/src/client), [`EntranceService`](src/server/Services/EntranceService.luau) | Inputs, HUD, animation, cameras, audio, lighting, and entrances kept apart from authoritative rules |
 
 Start with the [review guide](docs/REVIEW_GUIDE.md) for a short reading order, or read the [architecture notes](docs/ARCHITECTURE.md) for the dependency and ownership rules.
 
@@ -70,7 +70,7 @@ Install [Rokit](https://github.com/rojo-rbx/rokit), then run the pinned tools fr
 
 ```sh
 rokit install
-wally install --locked
+wally install
 rojo serve
 ```
 
@@ -80,7 +80,7 @@ Connect Roblox Studio to the Rojo server to sync the source tree. For an XML pla
 rojo build default.project.json -o ProWrestlingLeagues.rbxlx
 ```
 
-The CI workflow installs the pinned packages and checks formatting, lint, Luau analysis, and the Rojo build. To run the same checks locally:
+The CI workflow installs the pinned packages, checks that the lockfile stays unchanged, and runs formatting, lint, Luau analysis, and the Rojo build. To run the same checks locally:
 
 ```sh
 rojo sourcemap default.project.json --output sourcemap.json
