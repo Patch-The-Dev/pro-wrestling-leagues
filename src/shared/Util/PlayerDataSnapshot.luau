@@ -13,7 +13,11 @@ function PlayerDataSnapshot.Clone(data: PlayerData): PlayerData
 		SchemaVersion = data.SchemaVersion,
 		Currencies = table.clone(data.Currencies),
 		Progression = table.clone(data.Progression),
-		Statistics = table.clone(data.Statistics),
+		Statistics = {
+			Wins = data.Statistics.Wins,
+			Losses = data.Statistics.Losses,
+			RecentMatchIds = table.clone(data.Statistics.RecentMatchIds),
+		},
 		Wrestler = {
 			DisplayName = data.Wrestler.DisplayName,
 			Appearance = {

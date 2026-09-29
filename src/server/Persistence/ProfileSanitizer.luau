@@ -31,6 +31,7 @@ local function ensureDictionary(parent: Dictionary, key: string): Dictionary
 end
 
 local MAX_SAFE_INTEGER = 9_007_199_254_740_991
+local MAX_RECENT_MATCH_IDS = 64
 
 local function finiteNonNegative(value: unknown, fallback: number, integer: boolean): number
 	if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
@@ -114,6 +115,27 @@ function ProfileSanitizer.Apply(data: Dictionary)
 	statistics.Wins = finiteNonNegative(statistics.Wins, ProfileTemplate.Statistics.Wins, true)
 	statistics.Losses =
 		finiteNonNegative(statistics.Losses, ProfileTemplate.Statistics.Losses, true)
+	local recentMatchIds: { string } = {}
+	local seenMatchIds: { [string]: boolean } = {}
+	if type(statistics.RecentMatchIds) == "table" then
+		local stored = statistics.RecentMatchIds :: { unknown }
+		for index = #stored, 1, -1 do
+			local id = stored[index]
+			if
+				type(id) == "string"
+				and #id == 36
+				and string.match(id, "^[%x%-]+$") ~= nil
+				and not seenMatchIds[id]
+			then
+				table.insert(recentMatchIds, 1, id)
+				seenMatchIds[id] = true
+				if #recentMatchIds >= MAX_RECENT_MATCH_IDS then
+					break
+				end
+			end
+		end
+	end
+	statistics.RecentMatchIds = recentMatchIds
 
 	local wrestler = ensureDictionary(data, "Wrestler")
 	wrestler.DisplayName = if type(wrestler.DisplayName) == "string"

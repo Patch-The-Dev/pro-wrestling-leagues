@@ -15,6 +15,9 @@ This repository presents the Luau application code for Pro Wrestling Leagues. Th
 - Resource costs are committed only after an action is fully validated.
 - Match rewards are issued only from an active match.
 - Match rewards also require sufficient active time and a shared opponent cooldown claim.
+- A reward retry uses the same match ID and cannot mutate the same profile twice while that ID remains in its ledger.
+- Grapples revalidate the original target after the reversal window; stale or out-of-range targets take no damage.
+- Incapacitating combat states lock default movement and temporarily request server physics ownership.
 - A departing player's profile remains active until the match reward claim and both profile updates finish.
 - Queueing retries when an arena becomes available.
 - Persisted equipped moves cannot grant their own unlocks.

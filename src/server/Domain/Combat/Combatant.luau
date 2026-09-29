@@ -3,6 +3,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
+local CombatMovementModule = require(script.Parent.CombatMovement)
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local StateMachine = require(ReplicatedStorage.Shared.State.StateMachine)
 local Trove = require(ReplicatedStorage.Packages.Trove)
@@ -10,6 +11,7 @@ local Trove = require(ReplicatedStorage.Packages.Trove)
 type CombatState = CombatTypes.CombatState
 type CombatSnapshot = CombatTypes.CombatSnapshot
 type DamageSpec = CombatTypes.DamageSpec
+type CombatMovement = CombatMovementModule.CombatMovement
 
 local Combatant = {}
 Combatant.__index = Combatant
@@ -21,6 +23,7 @@ export type Combatant = typeof(setmetatable(
 		Humanoid: Humanoid,
 		_trove: typeof(Trove.new()),
 		_stateMachine: StateMachine.StateMachine,
+		_movement: CombatMovement,
 		_health: number,
 		_stamina: number,
 		_poise: number,
@@ -80,6 +83,7 @@ function Combatant.new(player: Player, character: Model): Combatant
 
 	local trove = Trove.new()
 	local stateMachine = StateMachine.new("Roaming", ALLOWED_TRANSITIONS)
+	local movement = CombatMovementModule.new(character, humanoid)
 
 	local self = setmetatable({
 		Player = player,
@@ -87,6 +91,7 @@ function Combatant.new(player: Player, character: Model): Combatant
 		Humanoid = humanoid,
 		_trove = trove,
 		_stateMachine = stateMachine,
+		_movement = movement,
 		_health = CombatConfig.MaxHealth,
 		_stamina = CombatConfig.MaxStamina,
 		_poise = 0,
@@ -99,7 +104,9 @@ function Combatant.new(player: Player, character: Model): Combatant
 	humanoid.Health = CombatConfig.MaxHealth
 
 	trove:Add(stateMachine)
+	trove:Add(movement)
 	trove:Connect(stateMachine.Changed, function()
+		self._movement:ApplyState(self:GetState())
 		self:_replicateSnapshot()
 	end)
 	trove:Connect(humanoid.Died, function()

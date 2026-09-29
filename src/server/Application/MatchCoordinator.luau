@@ -29,7 +29,12 @@ type DataSource = {
 }
 
 type EconomySource = {
-	ApplyMatchReward: (self: EconomySource, player: Player, didWin: boolean) -> boolean,
+	ApplyMatchReward: (
+		self: EconomySource,
+		player: Player,
+		didWin: boolean,
+		matchId: string
+	) -> boolean,
 }
 
 type EntranceSource = {
@@ -271,12 +276,20 @@ function MatchCoordinator:_createMatch(players: { Player }): boolean
 end
 
 function MatchCoordinator:_award(player: Player, didWin: boolean, matchId: string)
-	local succeeded, awarded = pcall(function()
-		return self._economySource:ApplyMatchReward(player, didWin)
-	end)
-	if not succeeded or not awarded then
-		warn(`Match reward failed for user {player.UserId} in match {matchId}: {tostring(awarded)}`)
+	local lastError: unknown = nil
+	for attempt = 1, 3 do
+		local succeeded, awarded = pcall(function()
+			return self._economySource:ApplyMatchReward(player, didWin, matchId)
+		end)
+		if succeeded and awarded then
+			return
+		end
+		lastError = awarded
+		if attempt < 3 then
+			task.wait(0.15 * attempt)
+		end
 	end
+	warn(`Match reward failed for user {player.UserId} in match {matchId}: {tostring(lastError)}`)
 end
 
 function MatchCoordinator:_placePlayers(session: MatchSession): boolean

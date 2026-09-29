@@ -9,7 +9,6 @@ local Promise = require(ReplicatedStorage.Packages.Promise)
 local Trove = require(ReplicatedStorage.Packages.Trove)
 
 local ActionBudgetModule = require(script.Parent.Parent.Domain.Combat.ActionBudget)
-local CharacterAdapter = require(script.Parent.Parent.Adapters.CharacterAdapter)
 local CombatRules = require(script.Parent.Parent.Domain.Combat.CombatRules)
 local CombatantModule = require(script.Parent.Parent.Domain.Combat.Combatant)
 local RecoverySchedulerModule = require(script.Parent.Parent.Domain.Combat.RecoveryScheduler)
@@ -130,9 +129,6 @@ function StrikeResolver:Request(
 		self._budget:CommitAttackSequence(player, sequence)
 	end
 
-	if action == "TurnbuckleAttack" then
-		CharacterAdapter.SetMovementEnabled(combatant.Character, true)
-	end
 	combatant:SetState(actionState)
 
 	local event: ResolvedAction = {

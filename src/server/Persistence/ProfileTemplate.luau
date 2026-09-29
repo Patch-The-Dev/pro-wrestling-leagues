@@ -5,7 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CustomizationConfig = require(ReplicatedStorage.Shared.Config.CustomizationConfig)
 
 local ProfileTemplate = {
-	SchemaVersion = 3,
+	SchemaVersion = 4,
 	Currencies = {
 		Cash = 0,
 		Tickets = 0,
@@ -17,6 +17,7 @@ local ProfileTemplate = {
 	Statistics = {
 		Wins = 0,
 		Losses = 0,
+		RecentMatchIds = {},
 	},
 	Wrestler = {
 		DisplayName = "",

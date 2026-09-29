@@ -1,6 +1,6 @@
 --!strict
 
-local CURRENT_SCHEMA_VERSION = 3
+local CURRENT_SCHEMA_VERSION = 4
 
 type Dictionary = { [string]: unknown }
 type Migration = (data: Dictionary) -> ()
@@ -84,9 +84,17 @@ local function migrateFinisherSlot(data: Dictionary)
 	moveLegacyField(moves, "GrappleHeavy", moves, "Finisher")
 end
 
+local function addMatchSettlementIds(data: Dictionary)
+	local statistics = ensureDictionary(data, "Statistics")
+	if type(statistics.RecentMatchIds) ~= "table" then
+		statistics.RecentMatchIds = {}
+	end
+end
+
 local MIGRATIONS: { [number]: Migration } = {
 	[1] = migrateLegacyRoot,
 	[2] = migrateFinisherSlot,
+	[3] = addMatchSettlementIds,
 }
 
 function ProfileMigrations.Apply(data: Dictionary): number

@@ -5,8 +5,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Contracts = require(ReplicatedStorage.Shared.Network.Contracts)
 local EconomyConfig = require(ReplicatedStorage.Shared.Config.EconomyConfig)
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local MatchRewardLedger = require(script.Parent.Parent.Domain.Economy.MatchRewardLedger)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
-local RewardPolicy = require(script.Parent.Parent.Domain.Economy.RewardPolicy)
 
 type CurrencyName = PlayerDataTypes.CurrencyName
 
@@ -49,20 +49,11 @@ function EconomyService:_publishBalance(player: Player)
 	})
 end
 
-function EconomyService:ApplyMatchReward(player: Player, didWin: boolean): boolean
-	local reward = RewardPolicy.ForMatchOutcome(didWin)
+function EconomyService:ApplyMatchReward(player: Player, didWin: boolean, matchId: string): boolean
+	local changed = false
 	local ok, updated = pcall(function()
 		return self._dataService:Update(player, function(data)
-			data.Currencies.Cash += reward.Cash
-			data.Currencies.Tickets += reward.Tickets
-			data.Progression.Experience += reward.Experience
-			data.Progression.Fame += reward.Fame
-
-			if didWin then
-				data.Statistics.Wins += 1
-			else
-				data.Statistics.Losses += 1
-			end
+			changed = MatchRewardLedger.Apply(data, matchId, didWin)
 		end)
 	end)
 	if not ok then
@@ -70,7 +61,7 @@ function EconomyService:ApplyMatchReward(player: Player, didWin: boolean): boole
 		return false
 	end
 
-	if updated then
+	if updated and changed then
 		local published, publishError = pcall(function()
 			self:_publishBalance(player)
 		end)

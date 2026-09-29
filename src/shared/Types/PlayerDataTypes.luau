@@ -66,6 +66,7 @@ export type PlayerData = {
 	Statistics: {
 		Wins: number,
 		Losses: number,
+		RecentMatchIds: { string },
 	},
 	Wrestler: {
 		DisplayName: string,

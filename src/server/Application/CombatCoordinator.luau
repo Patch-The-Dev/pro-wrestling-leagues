@@ -115,6 +115,19 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 	end)
 	local grapples = GrappleCoordinatorModule.new(function(player)
 		return combatants[player]
+	end, function(initiator, victim)
+		return dependencies.MatchSource:IsMatchActiveFor(initiator)
+			and dependencies.MatchSource:IsMatchActiveFor(victim)
+			and table.find(dependencies.MatchSource:GetOpponents(initiator), victim) ~= nil
+			and isPlausibleCharacter(initiator)
+			and Targeting.FindNearestOpponent(
+					initiator,
+					{ victim },
+					CombatConfig.Targeting.GrappleRange,
+					CombatConfig.Targeting.MinimumFacingDot,
+					isPlausibleCharacter
+				)
+				== victim
 	end, recovery, dependencies.EmitAction, dependencies.EmitGrappleWindow)
 	local pins = PinCoordinatorModule.new(
 		function(player)
@@ -337,7 +350,6 @@ function CombatCoordinator:EnterTurnbuckle(player: Player, turnbuckle: BasePart)
 	end
 
 	combatant:SetState("ClimbingTurnbuckle")
-	CharacterAdapter.SetMovementEnabled(combatant.Character, false)
 	local target = turnbuckle.CFrame * CFrame.new(0, turnbuckle.Size.Y * 0.5 + 2.5, 0)
 	CharacterAdapter.PlaceAt(combatant.Character, target)
 	self._movement:Forget(player)
@@ -355,7 +367,6 @@ function CombatCoordinator:LeaveTurnbuckle(player: Player)
 	if state == "ClimbingTurnbuckle" or state == "SittingOnTurnbuckle" then
 		combatant:SetState("Roaming")
 	end
-	CharacterAdapter.SetMovementEnabled(combatant.Character, true)
 end
 
 function CombatCoordinator:_requestStrike(player: Player, action: CombatAction): (boolean, string?)
@@ -543,7 +554,6 @@ function CombatCoordinator:ResetForMatchEnd(players: { Player })
 		if combatant ~= nil then
 			self._recovery:Invalidate(combatant)
 			combatant:ResetForMatchEnd()
-			CharacterAdapter.SetMovementEnabled(combatant.Character, true)
 		end
 		self._reportedDeaths[player] = false
 	end

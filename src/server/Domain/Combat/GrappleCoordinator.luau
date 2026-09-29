@@ -17,6 +17,7 @@ type GrappleSession = GrappleSessionModule.GrappleSession
 type RecoveryScheduler = RecoverySchedulerModule.RecoveryScheduler
 
 type GetCombatant = (player: Player) -> Combatant?
+type IsStillValid = (initiator: Player, victim: Player) -> boolean
 type EmitAction = (recipient: Player, event: ResolvedAction) -> ()
 type EmitWindow = (recipient: Player, sessionId: string, endsAt: number) -> ()
 
@@ -28,6 +29,7 @@ export type GrappleCoordinator = typeof(setmetatable(
 		_trove: typeof(Trove.new()),
 		_sessions: { [string]: GrappleSession },
 		_getCombatant: GetCombatant,
+		_isStillValid: IsStillValid,
 		_recovery: RecoveryScheduler,
 		_emitAction: EmitAction,
 		_emitWindow: EmitWindow,
@@ -37,6 +39,7 @@ export type GrappleCoordinator = typeof(setmetatable(
 
 function GrappleCoordinator.new(
 	getCombatant: GetCombatant,
+	isStillValid: IsStillValid,
 	recovery: RecoveryScheduler,
 	emitAction: EmitAction,
 	emitWindow: EmitWindow
@@ -45,10 +48,90 @@ function GrappleCoordinator.new(
 		_trove = Trove.new(),
 		_sessions = {},
 		_getCombatant = getCombatant,
+		_isStillValid = isStillValid,
 		_recovery = recovery,
 		_emitAction = emitAction,
 		_emitWindow = emitWindow,
 	}, GrappleCoordinator)
+end
+
+function GrappleCoordinator:_releaseParticipants(initiator: Combatant?, victim: Combatant?)
+	if initiator ~= nil and initiator:GetState() == "Grappling" then
+		initiator:SetState("Roaming")
+	end
+	if victim ~= nil and victim:GetState() == "Stunned" then
+		victim:SetState("Roaming")
+	end
+end
+
+function GrappleCoordinator:_resolve(
+	session: GrappleSession,
+	initiatorCombatant: Combatant,
+	victimCombatant: Combatant,
+	reversed: boolean,
+	action: "Grapple" | "RunningGrapple",
+	moveId: string,
+	damage: DamageSpec,
+	duration: number,
+	isFinisher: boolean
+)
+	local id = session.Id
+	if self._sessions[id] ~= session then
+		return
+	end
+	self._sessions[id] = nil
+
+	local initiator = session.Initiator
+	local victimPlayer = session.Victim
+	local validityChecked, targetValid = pcall(self._isStillValid, initiator, victimPlayer)
+	if
+		self._getCombatant(initiator) ~= initiatorCombatant
+		or self._getCombatant(victimPlayer) ~= victimCombatant
+		or initiatorCombatant:GetState() ~= "Grappling"
+		or victimCombatant:GetState() ~= "Stunned"
+		or not validityChecked
+		or not targetValid
+	then
+		self:_releaseParticipants(initiatorCombatant, victimCombatant)
+		session:Destroy()
+		return
+	end
+
+	if reversed then
+		victimCombatant:RestoreStamina(CombatConfig.Reversal.StaminaReward)
+		victimCombatant:AddFinisher(CombatConfig.Reversal.FinisherReward)
+		victimCombatant:SetState("Roaming")
+		initiatorCombatant:SetState("Stunned")
+		self._recovery:ScheduleVictim(initiatorCombatant, CombatConfig.DefaultStunSeconds)
+
+		local event: ResolvedAction = {
+			Action = "Reversal",
+			AttackerUserId = victimPlayer.UserId,
+			TargetUserId = initiator.UserId,
+		}
+		self._emitAction(initiator, event)
+		self._emitAction(victimPlayer, event)
+	else
+		initiatorCombatant:SetState("PerformingMove")
+		victimCombatant:SetState("PerformingMove")
+		initiatorCombatant:AddFinisher(damage.AttackerFinisher)
+		victimCombatant:ApplyDamage(damage)
+
+		local event: ResolvedAction = {
+			Action = action,
+			MoveId = moveId,
+			AttackerUserId = initiator.UserId,
+			TargetUserId = victimPlayer.UserId,
+			IsFinisher = if isFinisher then true else nil,
+		}
+		self._emitAction(initiator, event)
+		self._emitAction(victimPlayer, event)
+
+		self._recovery:ScheduleState(initiatorCombatant, "PerformingMove", "Roaming", duration)
+		self._recovery:ScheduleVictim(victimCombatant, math.max(damage.StunSeconds, duration))
+	end
+
+	session:Destroy()
 end
 
 function GrappleCoordinator:Start(
@@ -74,53 +157,17 @@ function GrappleCoordinator:Start(
 	self._emitWindow(victimPlayer, id, reversalEndsAt)
 
 	local resolution = session:AwaitResolution():andThen(function(reversed)
-		if self._sessions[id] ~= session then
-			return
-		end
-		self._sessions[id] = nil
-
-		local currentInitiator = self._getCombatant(initiator)
-		local currentVictim = self._getCombatant(victimPlayer)
-		if currentInitiator ~= initiatorCombatant or currentVictim ~= victimCombatant then
-			session:Destroy()
-			return
-		end
-
-		if reversed then
-			victimCombatant:RestoreStamina(CombatConfig.Reversal.StaminaReward)
-			victimCombatant:AddFinisher(CombatConfig.Reversal.FinisherReward)
-			victimCombatant:SetState("Roaming")
-			initiatorCombatant:SetState("Stunned")
-			self._recovery:ScheduleVictim(initiatorCombatant, CombatConfig.DefaultStunSeconds)
-
-			local event: ResolvedAction = {
-				Action = "Reversal",
-				AttackerUserId = victimPlayer.UserId,
-				TargetUserId = initiator.UserId,
-			}
-			self._emitAction(initiator, event)
-			self._emitAction(victimPlayer, event)
-		else
-			initiatorCombatant:SetState("PerformingMove")
-			victimCombatant:SetState("PerformingMove")
-			initiatorCombatant:AddFinisher(damage.AttackerFinisher)
-			victimCombatant:ApplyDamage(damage)
-
-			local event: ResolvedAction = {
-				Action = action,
-				MoveId = moveId,
-				AttackerUserId = initiator.UserId,
-				TargetUserId = victimPlayer.UserId,
-				IsFinisher = if isFinisher then true else nil,
-			}
-			self._emitAction(initiator, event)
-			self._emitAction(victimPlayer, event)
-
-			self._recovery:ScheduleState(initiatorCombatant, "PerformingMove", "Roaming", duration)
-			self._recovery:ScheduleVictim(victimCombatant, math.max(damage.StunSeconds, duration))
-		end
-
-		session:Destroy()
+		self:_resolve(
+			session,
+			initiatorCombatant,
+			victimCombatant,
+			reversed,
+			action,
+			moveId,
+			damage,
+			duration,
+			isFinisher
+		)
 	end)
 	self._trove:AddPromise(resolution)
 	return true
@@ -137,14 +184,8 @@ function GrappleCoordinator:CancelForPlayer(player: Player)
 			self._sessions[id] = nil
 
 			local initiatorCombatant = self._getCombatant(session.Initiator)
-			if initiatorCombatant ~= nil and initiatorCombatant:GetState() == "Grappling" then
-				initiatorCombatant:SetState("Roaming")
-			end
-
 			local victimCombatant = self._getCombatant(session.Victim)
-			if victimCombatant ~= nil and victimCombatant:GetState() == "Stunned" then
-				victimCombatant:SetState("Roaming")
-			end
+			self:_releaseParticipants(initiatorCombatant, victimCombatant)
 
 			session:Destroy()
 		end

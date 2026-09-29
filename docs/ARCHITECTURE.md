@@ -27,11 +27,12 @@ Knit is the application boundary, not the gameplay model. Services validate netw
 - `ActionBudget` validates stamina, cooldowns, and attack-chain state before committing resources.
 - `RecoveryScheduler` owns delayed state recovery.
 - `GrappleCoordinator` owns reversal windows and grapple resolution.
+- `CombatMovement` connects incapacitating states to Humanoid movement and short-lived server network ownership. It captures and restores the character's movement settings when a lock begins and ends.
 - `PinCoordinator` owns server-timed pin prompts and match resolution. `PinPromptView` renders the target time, while the server accepts only bounded latency compensation measured through `Player:GetNetworkPing()`.
 - `Targeting` resolves opponents from the active match, distance, health, facing, and line of sight.
 - `StrikeResolver` owns strike and weapon-hit resolution after the coordinator validates the use case. Strikes use configured windup times, then recheck the match, attacker, and target before applying damage.
 
-The validation order is intentional. A strike commits stamina and cooldown when it starts, then checks the target again at impact. Weapon use reserves durability before damage and rolls it back if the attack cannot land.
+The validation order is intentional. A strike commits stamina and cooldown when it starts, then checks the target again at impact. A grapple locks default movement during its reversal window, then revalidates the original target before resolving either the move or its reversal. Weapon use reserves durability before damage and rolls it back if the attack cannot land.
 
 ## Match lifecycle
 
@@ -41,7 +42,7 @@ The countdown is calculated from entrance lead-in, entrant spacing, presentation
 
 ## Persistence
 
-`PlayerRepository` is the only module that knows ProfileStore. Services receive typed player data through `DataService`. Migrations run before reconciliation so legacy Studio-era profiles can be normalized into the current schema. `PlayerDeparture` calls match settlement before releasing a departing player's profile. Both participants wait on the same settlement if they leave while the shared reward claim is in progress. Failed reward updates are logged; the two profile writes are not one atomic transaction. Profile sanitization keeps an equipped move only when its unlock is owned; otherwise the slot returns to a default move.
+`PlayerRepository` is the only module that knows ProfileStore. Services receive typed player data through `DataService`. Migrations run before reconciliation so legacy Studio-era profiles can be normalized into the current schema. `PlayerDeparture` calls match settlement before releasing a departing player's profile. Both participants wait on the same settlement if they leave while the shared reward claim is in progress. Each profile keeps the most recent 64 rewarded match IDs so in-session retries are idempotent. Failed reward updates are logged; the two profile writes are not one atomic transaction. Profile sanitization keeps an equipped move only when its unlock is owned; otherwise the slot returns to a default move.
 
 Studio uses ProfileStore mock storage by default. This keeps local testing away from live player data.
 
