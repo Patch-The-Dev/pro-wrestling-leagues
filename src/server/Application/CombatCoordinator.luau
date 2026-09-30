@@ -290,8 +290,7 @@ function CombatCoordinator:SeedMovement(player: Player)
 	end
 	local root = combatant.Character:FindFirstChild("HumanoidRootPart")
 	if root ~= nil and root:IsA("BasePart") then
-		self._movement:Forget(player)
-		self._movement:Observe(player, root.Position, workspace:GetServerTimeNow())
+		self._movement:Seed(player, root.Position, workspace:GetServerTimeNow())
 	end
 end
 

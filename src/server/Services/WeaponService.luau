@@ -149,6 +149,9 @@ function WeaponService:RequestAction(
 		if not self._combatService:IsMovementPlausible(player) then
 			return false, "Character movement is not plausible"
 		end
+		if not self:_belongsToPlayerArena(player, component) then
+			return false, "Weapon belongs to another arena"
+		end
 		if not component:Drop(player) then
 			return false, "Weapon is not owned by this player"
 		end

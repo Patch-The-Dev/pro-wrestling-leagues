@@ -29,12 +29,14 @@ This repository presents the Luau application code for Pro Wrestling Leagues. Th
 - A cancelled countdown cannot begin combat, and stale entrance cues cannot play after match activation.
 - Running actions require plausible sampled travel, not velocity alone. Movement checks include vertical travel and current-position validation between sampling ticks.
 - Implausible movement does not establish a new trusted position after the lock expires. The character returns to the last valid position, and weapon pickup and drop use the same movement check as combat.
+- Intentional server placement seeds a trusted movement position at match start and after entering a turnbuckle.
 - Registered weapons cannot be collected through default touch pickup or dropped through the backpack key path; their service controls those transitions.
 - Persistence is accessed through one repository boundary.
 - Stateful objects own cleanup through Trove.
 - Timed interactions use server time.
 - Delayed recovery work is generation-checked so stale timers cannot mutate a later combat state.
 - Arena weapons are tied to their origin arena and reset when the owning match closes.
+- Removing an arena model does not clear its active match reservation. A replacement with the same ID becomes available after the old match releases it.
 - Runtime world objects use tags instead of copied scripts.
 - Configuration and player-data schemas are separate from implementation.
 

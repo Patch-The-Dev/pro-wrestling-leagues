@@ -44,17 +44,21 @@ function MovementHistory.new(): MovementHistory
 	return setmetatable({ _samples = {} }, MovementHistory)
 end
 
+function MovementHistory:Seed(player: Player, position: Vector3, now: number)
+	self._samples[player] = {
+		Position = position,
+		Time = now,
+		WindowPosition = position,
+		WindowTime = now,
+		HorizontalSpeed = 0,
+		BlockedUntil = 0,
+	}
+end
+
 function MovementHistory:Observe(player: Player, position: Vector3, now: number): Vector3?
 	local sample = self._samples[player]
 	if sample == nil then
-		self._samples[player] = {
-			Position = position,
-			Time = now,
-			WindowPosition = position,
-			WindowTime = now,
-			HorizontalSpeed = 0,
-			BlockedUntil = 0,
-		}
+		self:Seed(player, position, now)
 		return nil
 	end
 

@@ -17,6 +17,8 @@ The code covers matchmaking, entrances, three-hit striking, running attacks, gra
 - Character attributes mirror domain state for presentation.
 - Persistence, UI updates, and customization have separate owners.
 - UI controllers do not mutate profile tables.
+- Movement thresholds live in `CombatConfig`. They need validation against live physics and network conditions; intentional server relocation reseeds movement history.
+- Knit is pinned for the existing service and client network boundary. Its upstream repository is archived, so new gameplay rules stay in framework-independent domain modules and transport changes can be tested at the service boundary.
 
 ## Asset integration
 

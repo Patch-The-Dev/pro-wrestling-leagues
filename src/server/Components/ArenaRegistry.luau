@@ -96,7 +96,6 @@ function ArenaRegistry.Remove(self: ArenaRegistry, instance: Instance)
 	for arenaId, arena in self._arenas do
 		if arena == instance then
 			self._arenas[arenaId] = nil
-			self._reservations[arenaId] = nil
 		end
 	end
 end
