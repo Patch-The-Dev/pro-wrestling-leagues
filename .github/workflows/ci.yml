@@ -45,6 +45,13 @@ jobs:
             src/server/Domain \
             src/server/Networking \
             src/server/Persistence \
+            src/server/Services/CustomizationService.luau \
+            src/server/Services/DataService.luau \
+            src/server/Services/EconomyService.luau \
+            src/server/Services/EntranceService.luau \
+            src/server/Services/RequestGateService.luau \
+            src/server/Services/TurnbuckleService.luau \
+            src/server/Services/WeaponService.luau \
             src/shared
 
       - name: Build Rojo project

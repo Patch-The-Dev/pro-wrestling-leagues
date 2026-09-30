@@ -90,7 +90,7 @@ Connect Roblox Studio to the Rojo server to sync the source tree. For an XML pla
 rojo build default.project.json -o ProWrestlingLeagues.rbxlx
 ```
 
-The [source checks workflow](.github/workflows/ci.yml) installs the pinned packages, checks that the lockfile stays unchanged, runs formatting and lint, type-checks the client, shared code, server adapters, components, domain rules, networking, and persistence, and builds both Rojo projects. The Luau analyzer uses versioned Roblox definitions with a checked checksum. Application coordinators and services are not yet in that analyzer gate; their runtime behavior is exercised by the Studio suite and bootstrap check. To run the format, lint, and build checks locally:
+The [source checks workflow](.github/workflows/ci.yml) installs the pinned packages, checks that the lockfile stays unchanged, runs formatting and lint, type-checks the client, shared code, server adapters, components, domain rules, networking, persistence, and seven services, and builds both Rojo projects. The Luau analyzer uses versioned Roblox definitions with a checked checksum. Application coordinators and the remaining services are outside that analyzer gate; the Studio suite and bootstrap check exercise their runtime behavior. To run the format, lint, and build checks locally:
 
 ```sh
 git diff --exit-code -- wally.lock
@@ -120,7 +120,7 @@ local result = TestEZ.TestBootstrap:run({ game.ServerScriptService.Tests }, Test
 assert(result.failureCount == 0)
 ```
 
-The hosted source checks build and lint the tests; the TestEZ suite and bootstrap run in Roblox Studio through the script above.
+GitHub Actions checks formatting, lint, the configured Luau analyzer scope, and both Rojo builds. The TestEZ suite and server bootstrap run locally in Roblox Studio through the script above; the workflow does not run Studio tests.
 
 The source tree is the reviewable application layer; the [live Roblox game](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES) is the playable project. Studio-authored arenas, UI, animation, sound, and cosmetic assets connect through the documented runtime contract.
 
