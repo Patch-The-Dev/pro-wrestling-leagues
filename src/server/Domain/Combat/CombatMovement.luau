@@ -48,8 +48,8 @@ function CombatMovement.new(character: Model, humanoid: Humanoid): CombatMovemen
 		_humanoid = humanoid,
 		_trove = Trove.new(),
 		_locked = false,
-		_baseline = nil,
-		_ownedRoot = nil,
+		_baseline = nil :: MovementBaseline?,
+		_ownedRoot = nil :: BasePart?,
 	}, CombatMovement)
 	self._trove:Connect(character.ChildAdded, function(child)
 		if self._locked and child.Name == "HumanoidRootPart" and child:IsA("BasePart") then
@@ -59,9 +59,10 @@ function CombatMovement.new(character: Model, humanoid: Humanoid): CombatMovemen
 	return self
 end
 
-function CombatMovement:_claimRoot(root: BasePart)
-	local succeeded, canSet = pcall(function()
-		return root:CanSetNetworkOwnership()
+function CombatMovement._claimRoot(self: CombatMovement, root: BasePart)
+	local canSet = false
+	local succeeded = pcall(function()
+		canSet = root:CanSetNetworkOwnership()
 	end)
 	if not succeeded or not canSet then
 		return
@@ -74,7 +75,7 @@ function CombatMovement:_claimRoot(root: BasePart)
 	end
 end
 
-function CombatMovement:SetLocked(locked: boolean)
+function CombatMovement.SetLocked(self: CombatMovement, locked: boolean)
 	if self._locked == locked then
 		return
 	end
@@ -118,11 +119,11 @@ function CombatMovement:SetLocked(locked: boolean)
 	end
 end
 
-function CombatMovement:ApplyState(state: CombatState)
+function CombatMovement.ApplyState(self: CombatMovement, state: CombatState)
 	self:SetLocked(LOCKED_STATES[state] == true)
 end
 
-function CombatMovement:Destroy()
+function CombatMovement.Destroy(self: CombatMovement)
 	self:SetLocked(false)
 	self._trove:Destroy()
 end

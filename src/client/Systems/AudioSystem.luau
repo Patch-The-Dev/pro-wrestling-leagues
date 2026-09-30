@@ -38,7 +38,7 @@ function AudioSystem:PlayMusic(assetId: string?)
 	self._activeSound = sound
 end
 
-function AudioSystem:StopMusic()
+function AudioSystem.StopMusic(self: AudioSystem)
 	if self._activeSound ~= nil then
 		self._activeSound:Destroy()
 		self._activeSound = nil

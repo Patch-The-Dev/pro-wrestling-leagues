@@ -32,7 +32,8 @@ function ActionBudget.new(): ActionBudget
 	}, ActionBudget)
 end
 
-function ActionBudget:Validate(
+function ActionBudget.Validate(
+	self: ActionBudget,
 	player: Player,
 	combatant: Combatant,
 	action: CombatAction
@@ -54,7 +55,12 @@ function ActionBudget:Validate(
 	return true, nil
 end
 
-function ActionBudget:Commit(player: Player, combatant: Combatant, action: CombatAction): boolean
+function ActionBudget.Commit(
+	self: ActionBudget,
+	player: Player,
+	combatant: Combatant,
+	action: CombatAction
+): boolean
 	local staminaCost = CombatRules.GetStaminaCost(action)
 	if not combatant:SpendStamina(staminaCost) then
 		return false
@@ -69,7 +75,12 @@ function ActionBudget:Commit(player: Player, combatant: Combatant, action: Comba
 	return true
 end
 
-function ActionBudget:Rollback(player: Player, combatant: Combatant, action: CombatAction)
+function ActionBudget.Rollback(
+	self: ActionBudget,
+	player: Player,
+	combatant: Combatant,
+	action: CombatAction
+)
 	local byAction = self._cooldowns[player]
 	if byAction ~= nil then
 		byAction[action] = nil
@@ -77,7 +88,7 @@ function ActionBudget:Rollback(player: Player, combatant: Combatant, action: Com
 	combatant:RestoreStamina(CombatRules.GetStaminaCost(action))
 end
 
-function ActionBudget:PeekAttackSequence(player: Player): number
+function ActionBudget.PeekAttackSequence(self: ActionBudget, player: Player): number
 	local combo = self._combos[player]
 	local now = os.clock()
 	if combo == nil or now - combo.LastAt > 1 then
@@ -86,19 +97,19 @@ function ActionBudget:PeekAttackSequence(player: Player): number
 	return (combo.Index % 3) + 1
 end
 
-function ActionBudget:CommitAttackSequence(player: Player, sequence: number)
+function ActionBudget.CommitAttackSequence(self: ActionBudget, player: Player, sequence: number)
 	self._combos[player] = {
 		Index = sequence,
 		LastAt = os.clock(),
 	}
 end
 
-function ActionBudget:Forget(player: Player)
+function ActionBudget.Forget(self: ActionBudget, player: Player)
 	self._cooldowns[player] = nil
 	self._combos[player] = nil
 end
 
-function ActionBudget:Destroy()
+function ActionBudget.Destroy(self: ActionBudget)
 	table.clear(self._cooldowns)
 	table.clear(self._combos)
 end

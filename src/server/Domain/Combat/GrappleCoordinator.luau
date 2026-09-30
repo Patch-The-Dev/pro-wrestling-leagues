@@ -55,7 +55,7 @@ function GrappleCoordinator.new(
 	}, GrappleCoordinator)
 end
 
-function GrappleCoordinator:_releaseParticipants(initiator: Combatant?, victim: Combatant?)
+local function releaseParticipants(initiator: Combatant?, victim: Combatant?)
 	if initiator ~= nil and initiator:GetState() == "Grappling" then
 		initiator:SetState("Roaming")
 	end
@@ -64,7 +64,8 @@ function GrappleCoordinator:_releaseParticipants(initiator: Combatant?, victim: 
 	end
 end
 
-function GrappleCoordinator:_resolve(
+function GrappleCoordinator._resolve(
+	self: GrappleCoordinator,
 	session: GrappleSession,
 	initiatorCombatant: Combatant,
 	victimCombatant: Combatant,
@@ -92,7 +93,7 @@ function GrappleCoordinator:_resolve(
 		or not validityChecked
 		or not targetValid
 	then
-		self:_releaseParticipants(initiatorCombatant, victimCombatant)
+		releaseParticipants(initiatorCombatant, victimCombatant)
 		session:Destroy()
 		return
 	end
@@ -185,7 +186,7 @@ function GrappleCoordinator:CancelForPlayer(player: Player)
 
 			local initiatorCombatant = self._getCombatant(session.Initiator)
 			local victimCombatant = self._getCombatant(session.Victim)
-			self:_releaseParticipants(initiatorCombatant, victimCombatant)
+			releaseParticipants(initiatorCombatant, victimCombatant)
 
 			session:Destroy()
 		end

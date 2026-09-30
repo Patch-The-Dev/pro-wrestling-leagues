@@ -1,8 +1,6 @@
 --!strict
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local Knit = require(ReplicatedStorage.Packages.Knit)
+local Knit = require(script.Parent.Parent.KnitClient)
 
 local ShopController = Knit.CreateController({
 	Name = "ShopController",

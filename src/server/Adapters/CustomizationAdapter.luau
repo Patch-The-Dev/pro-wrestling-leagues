@@ -76,7 +76,7 @@ function CustomizationAdapter.Apply(character: Model, appearance: Appearance)
 	end
 
 	local applied, applyError = pcall(function()
-		humanoid:ApplyDescription(description)
+		humanoid:ApplyDescriptionAsync(description)
 	end)
 	if not applied then
 		warn(`Could not apply appearance to {character.Name}: {tostring(applyError)}`)

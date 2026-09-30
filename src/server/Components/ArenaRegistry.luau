@@ -17,7 +17,7 @@ ArenaRegistry.__index = ArenaRegistry
 
 export type ArenaRegistry = typeof(setmetatable(
 	{} :: {
-		_arenas: { [string]: Model },
+		_arenas: { [string]: Model? },
 		_reservations: { [string]: string },
 		_trove: typeof(Trove.new()),
 		Available: typeof(Signal.new()),
@@ -42,7 +42,7 @@ end
 
 function ArenaRegistry.new(): ArenaRegistry
 	local self = setmetatable({
-		_arenas = {},
+		_arenas = {} :: { [string]: Model? },
 		_reservations = {},
 		_trove = Trove.new(),
 		Available = Signal.new(),
@@ -69,7 +69,7 @@ function ArenaRegistry.new(): ArenaRegistry
 	return self
 end
 
-function ArenaRegistry:Add(instance: Instance)
+function ArenaRegistry.Add(self: ArenaRegistry, instance: Instance)
 	if not instance:IsA("Model") then
 		return
 	end
@@ -92,7 +92,7 @@ function ArenaRegistry:Add(instance: Instance)
 	end
 end
 
-function ArenaRegistry:Remove(instance: Instance)
+function ArenaRegistry.Remove(self: ArenaRegistry, instance: Instance)
 	for arenaId, arena in self._arenas do
 		if arena == instance then
 			self._arenas[arenaId] = nil
@@ -105,7 +105,7 @@ function ArenaRegistry:Get(arenaId: string): Model?
 	return self._arenas[arenaId]
 end
 
-function ArenaRegistry:Contains(arenaId: string, instance: Instance): boolean
+function ArenaRegistry.Contains(self: ArenaRegistry, arenaId: string, instance: Instance): boolean
 	local arena = self:Get(arenaId)
 	return arena ~= nil and (instance == arena or instance:IsDescendantOf(arena))
 end

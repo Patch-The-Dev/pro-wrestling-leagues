@@ -3,7 +3,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AnimationSystem = require(script.Parent.Parent.Systems.AnimationSystem)
-local Knit = require(ReplicatedStorage.Packages.Knit)
+local Knit = require(script.Parent.Parent.KnitClient)
 local PinPromptView = require(script.Parent.Parent.UI.PinPromptView)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local Signal = require(ReplicatedStorage.Packages.Signal)
@@ -78,16 +78,19 @@ function CombatController:KnitStart()
 		self.ActionResolved:Fire(event)
 	end)
 
-	self._trove:Connect(self._combatService.GrappleWindow, function(sessionId, endsAt)
-		self._activeGrappleSession = sessionId
-		local remaining = math.max(0, endsAt - workspace:GetServerTimeNow())
-		local expiry = Promise.delay(remaining + 0.05):andThen(function()
-			if self._activeGrappleSession == sessionId then
-				self._activeGrappleSession = nil
-			end
-		end)
-		self._trove:AddPromise(expiry)
-	end)
+	self._trove:Connect(
+		self._combatService.GrappleWindow,
+		function(sessionId: string, endsAt: number)
+			self._activeGrappleSession = sessionId
+			local remaining = math.max(0, endsAt - workspace:GetServerTimeNow())
+			local expiry = Promise.delay(remaining + 0.05):andThen(function()
+				if self._activeGrappleSession == sessionId then
+					self._activeGrappleSession = nil
+				end
+			end)
+			self._trove:AddPromise(expiry)
+		end
+	)
 
 	self._trove:Connect(self._combatService.PinPrompt, function(sessionId, targetTime)
 		self._activePinSession = sessionId

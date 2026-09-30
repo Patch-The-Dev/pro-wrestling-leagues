@@ -57,7 +57,7 @@ function RewardCooldown:TryClaim(firstUserId: number, secondUserId: number, now:
 	local map = self._map
 	if map ~= nil then
 		local succeeded, claimedAt = pcall(function()
-			return map:UpdateAsync(key, function(previous)
+			return map:UpdateAsync(key, function(previous): number?
 				if type(previous) == "number" and now - previous < cooldown then
 					return nil
 				end

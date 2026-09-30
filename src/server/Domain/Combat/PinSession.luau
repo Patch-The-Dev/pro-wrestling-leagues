@@ -37,7 +37,7 @@ function PinSession.new(
 		Victim = victim,
 		_trove = Trove.new(),
 		_promptIndex = 0,
-		_targetTime = nil,
+		_targetTime = nil :: number?,
 		_latencyAllowanceSeconds = math.clamp(
 			latencyAllowanceSeconds or 0,
 			0,
@@ -49,7 +49,7 @@ function PinSession.new(
 	}, PinSession)
 end
 
-function PinSession:NextPrompt(): number?
+function PinSession.NextPrompt(self: PinSession): number?
 	if self._finished then
 		return nil
 	end
@@ -71,7 +71,7 @@ function PinSession:NextPrompt(): number?
 	return self._targetTime
 end
 
-function PinSession:SubmitInput(player: Player): boolean
+function PinSession.SubmitInput(self: PinSession, player: Player): boolean
 	if self._finished or player ~= self.Victim or self._targetTime == nil then
 		return false
 	end
@@ -90,7 +90,7 @@ function PinSession:SubmitInput(player: Player): boolean
 	return true
 end
 
-function PinSession:ExpirePrompt()
+function PinSession.ExpirePrompt(self: PinSession)
 	if self._finished or self._targetTime == nil then
 		return
 	end
@@ -102,7 +102,7 @@ function PinSession:ExpirePrompt()
 	end
 end
 
-function PinSession:AwaitPromptExpiry()
+function PinSession.AwaitPromptExpiry(self: PinSession)
 	if self._targetTime == nil then
 		return Promise.reject("Pin prompt has not been scheduled")
 	end
@@ -119,19 +119,19 @@ function PinSession:AwaitPromptExpiry()
 	return timer
 end
 
-function PinSession:IsFinished(): boolean
+function PinSession.IsFinished(self: PinSession): boolean
 	return self._finished
 end
 
-function PinSession:DidEscape(): boolean
+function PinSession.DidEscape(self: PinSession): boolean
 	return self._escaped
 end
 
-function PinSession:GetMisses(): number
+function PinSession.GetMisses(self: PinSession): number
 	return self._misses
 end
 
-function PinSession:Destroy()
+function PinSession.Destroy(self: PinSession)
 	self._trove:Destroy()
 end
 

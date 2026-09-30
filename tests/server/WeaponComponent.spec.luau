@@ -37,5 +37,21 @@ return function()
 			expect(component.MaxDurability).to.equal(1000)
 			tool:Destroy()
 		end)
+
+		it("uses service-controlled pickup and restores the arena spawn", function()
+			local tool = Instance.new("Tool")
+			local handle = Instance.new("Part")
+			handle.Name = "Handle"
+			handle.CFrame = CFrame.new(12, 5, 8)
+			handle.Parent = tool
+			tool.Parent = workspace
+			local component = WeaponComponent.new(tool, "test")
+			expect(tool.CanBeDropped).to.equal(false)
+			expect(handle.CanTouch).to.equal(false)
+			handle.CFrame = CFrame.new(50, 5, 8)
+			component:Reset()
+			expect(handle.Position).to.equal(Vector3.new(12, 5, 8))
+			tool:Destroy()
+		end)
 	end)
 end

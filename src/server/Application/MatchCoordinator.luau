@@ -277,16 +277,18 @@ function MatchCoordinator:_createMatch(players: { Player }): boolean
 		for _, player in players do
 			self._matchesByPlayer[player] = startingSession
 			self._emitQueueChanged(player, false)
+		end
+
+		if not self:_placePlayers(startingSession) then
+			error(`Arena {arenaId} could not place every player for match {id}`)
+		end
+		for _, player in players do
 			self._emitMatchChanged(player, {
 				Id = id,
 				State = "Starting",
 				ArenaId = arenaId,
 				StartsAt = startsAt,
 			})
-		end
-
-		if not self:_placePlayers(startingSession) then
-			error(`Arena {arenaId} could not place every player for match {id}`)
 		end
 		local startingCharacters: { [Player]: Model } = {}
 		for _, player in players do
@@ -421,6 +423,11 @@ end
 function MatchCoordinator:IsMatchActiveFor(player: Player): boolean
 	local session = self._matchesByPlayer[player]
 	return session ~= nil and session.State == "Active"
+end
+
+function MatchCoordinator:IsMatchInProgressFor(player: Player): boolean
+	local session = self._matchesByPlayer[player]
+	return session ~= nil and (session.State == "Starting" or session.State == "Active")
 end
 
 function MatchCoordinator:_getArenaId(player: Player): string?

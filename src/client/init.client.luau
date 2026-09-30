@@ -1,8 +1,6 @@
 --!strict
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local Knit = require(ReplicatedStorage.Packages.Knit)
+local Knit = require(script.KnitClient)
 
 Knit.AddControllersDeep(script.Parent.Controllers)
 

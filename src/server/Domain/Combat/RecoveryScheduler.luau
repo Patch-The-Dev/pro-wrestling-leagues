@@ -33,18 +33,23 @@ function RecoveryScheduler.new(getCombatant: GetCombatant): RecoveryScheduler
 	}, RecoveryScheduler)
 end
 
-function RecoveryScheduler:_nextGeneration(combatant: Combatant): number
+function RecoveryScheduler._nextGeneration(self: RecoveryScheduler, combatant: Combatant): number
 	local generation = (self._generations[combatant] or 0) + 1
 	self._generations[combatant] = generation
 	return generation
 end
 
-function RecoveryScheduler:_isCurrent(combatant: Combatant, generation: number): boolean
+function RecoveryScheduler._isCurrent(
+	self: RecoveryScheduler,
+	combatant: Combatant,
+	generation: number
+): boolean
 	return self._generations[combatant] == generation
 		and self._getCombatant(combatant.Player) == combatant
 end
 
-function RecoveryScheduler:ScheduleState(
+function RecoveryScheduler.ScheduleState(
+	self: RecoveryScheduler,
 	combatant: Combatant,
 	expectedState: CombatState,
 	nextState: CombatState,
@@ -63,7 +68,11 @@ function RecoveryScheduler:ScheduleState(
 	return promise
 end
 
-function RecoveryScheduler:ScheduleVictim(combatant: Combatant, stunSeconds: number)
+function RecoveryScheduler.ScheduleVictim(
+	self: RecoveryScheduler,
+	combatant: Combatant,
+	stunSeconds: number
+)
 	local state = combatant:GetState()
 	if state == "Stunned" then
 		self:ScheduleState(combatant, "Stunned", "Roaming", math.max(0.1, stunSeconds))
@@ -81,18 +90,18 @@ function RecoveryScheduler:ScheduleVictim(combatant: Combatant, stunSeconds: num
 	end
 end
 
-function RecoveryScheduler:Invalidate(combatant: Combatant)
+function RecoveryScheduler.Invalidate(self: RecoveryScheduler, combatant: Combatant)
 	self:_nextGeneration(combatant)
 end
 
-function RecoveryScheduler:Forget(combatant: Combatant)
+function RecoveryScheduler.Forget(self: RecoveryScheduler, combatant: Combatant)
 	-- Removed combatants are never reused, so clearing the generation is safe once
 	-- the owning coordinator has detached the object. Persistent combatants should
 	-- use Invalidate so stale timers can never collide with a later generation.
 	self._generations[combatant] = nil
 end
 
-function RecoveryScheduler:Destroy()
+function RecoveryScheduler.Destroy(self: RecoveryScheduler)
 	table.clear(self._generations)
 	self._trove:Destroy()
 end

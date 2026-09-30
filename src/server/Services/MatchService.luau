@@ -59,6 +59,8 @@ function MatchService:KnitInit()
 	self._coordinator = nil :: MatchCoordinator?
 	self.SessionClosed = Signal.new()
 	self._trove:Add(self.SessionClosed)
+	self.CharacterPlaced = Signal.new()
+	self._trove:Add(self.CharacterPlaced)
 end
 
 function MatchService:KnitStart()
@@ -75,6 +77,9 @@ function MatchService:KnitStart()
 			self.Client.QueueChanged:Fire(player, queued)
 		end,
 		EmitMatchChanged = function(player, update)
+			if update.State == "Starting" then
+				self.CharacterPlaced:Fire(player)
+			end
 			self.Client.MatchChanged:Fire(player, update)
 		end,
 		OnSessionClosed = function(players, result)
@@ -109,6 +114,10 @@ end
 
 function MatchService:IsMatchActiveFor(player: Player): boolean
 	return self:_getCoordinator():IsMatchActiveFor(player)
+end
+
+function MatchService:IsMatchInProgressFor(player: Player): boolean
+	return self:_getCoordinator():IsMatchInProgressFor(player)
 end
 
 function MatchService:IsInstanceInPlayerArena(player: Player, instance: Instance): boolean

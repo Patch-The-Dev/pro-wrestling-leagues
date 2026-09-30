@@ -30,8 +30,8 @@ function MatchSession.new(id: string, arenaId: string, players: { Player }): Mat
 		Id = id,
 		ArenaId = arenaId,
 		Players = table.clone(players),
-		State = "Waiting",
-		StartedAt = nil,
+		State = "Waiting" :: MatchState,
+		StartedAt = nil :: number?,
 		_votesToEnd = {},
 	}, MatchSession)
 end

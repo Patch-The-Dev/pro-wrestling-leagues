@@ -71,7 +71,7 @@ function PyroSystem:_disableActive()
 	table.clear(self._activeEmitters)
 end
 
-function PyroSystem:Play(presetName: string, arenaId: string?)
+function PyroSystem.Play(self: PyroSystem, presetName: string, arenaId: string?)
 	self._generation += 1
 	self:_disableActive()
 
@@ -112,7 +112,7 @@ function PyroSystem:Play(presetName: string, arenaId: string?)
 	end
 end
 
-function PyroSystem:Stop()
+function PyroSystem.Stop(self: PyroSystem)
 	self._generation += 1
 	self:_disableActive()
 end

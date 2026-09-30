@@ -34,7 +34,7 @@ function GrappleSession.new(id: string, initiator: Player, victim: Player): Grap
 	}, GrappleSession)
 end
 
-function GrappleSession:CanReverse(player: Player): boolean
+function GrappleSession.CanReverse(self: GrappleSession, player: Player): boolean
 	if self._resolved or player ~= self.Victim then
 		return false
 	end
@@ -42,7 +42,7 @@ function GrappleSession:CanReverse(player: Player): boolean
 	return workspace:GetServerTimeNow() - self._startedAt <= CombatConfig.Reversal.WindowSeconds
 end
 
-function GrappleSession:TryReverse(player: Player): boolean
+function GrappleSession.TryReverse(self: GrappleSession, player: Player): boolean
 	if not self:CanReverse(player) then
 		return false
 	end
@@ -52,7 +52,7 @@ function GrappleSession:TryReverse(player: Player): boolean
 	return true
 end
 
-function GrappleSession:AwaitResolution()
+function GrappleSession.AwaitResolution(self: GrappleSession)
 	local timer = Promise.delay(CombatConfig.Reversal.WindowSeconds):andThen(function()
 		if not self._resolved then
 			self._resolved = true
@@ -65,11 +65,11 @@ function GrappleSession:AwaitResolution()
 	return timer
 end
 
-function GrappleSession:IsResolved(): boolean
+function GrappleSession.IsResolved(self: GrappleSession): boolean
 	return self._resolved
 end
 
-function GrappleSession:Destroy()
+function GrappleSession.Destroy(self: GrappleSession)
 	self._trove:Destroy()
 end
 

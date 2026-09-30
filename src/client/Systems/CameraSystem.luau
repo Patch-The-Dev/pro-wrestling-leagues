@@ -23,8 +23,8 @@ function CameraSystem.new(): CameraSystem
 	return setmetatable({
 		_trove = Trove.new(),
 		_generation = 0,
-		_baselineType = nil,
-		_baselineSubject = nil,
+		_baselineType = nil :: Enum.CameraType?,
+		_baselineSubject = nil :: Instance?,
 	}, CameraSystem)
 end
 
@@ -39,7 +39,7 @@ function CameraSystem:_restore(camera: Camera)
 	self._baselineSubject = nil
 end
 
-function CameraSystem:FocusPlayer(userId: number, duration: number)
+function CameraSystem.FocusPlayer(self: CameraSystem, userId: number, duration: number)
 	local camera = workspace.CurrentCamera
 	local player = Players:GetPlayerByUserId(userId)
 	local character = if player ~= nil then player.Character else nil
@@ -68,7 +68,7 @@ function CameraSystem:FocusPlayer(userId: number, duration: number)
 	return promise
 end
 
-function CameraSystem:Stop()
+function CameraSystem.Stop(self: CameraSystem)
 	self._generation += 1
 	local camera = workspace.CurrentCamera
 	if camera ~= nil and self._baselineType ~= nil then

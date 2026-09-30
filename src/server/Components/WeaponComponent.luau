@@ -21,6 +21,7 @@ export type WeaponComponent = typeof(setmetatable(
 		PoiseDamage: number,
 		UseCooldown: number,
 		_worldParent: Instance?,
+		_spawnCFrame: CFrame?,
 		_lastUsedAt: number,
 		_useRevision: number,
 	},
@@ -46,6 +47,8 @@ function WeaponComponent.new(tool: Tool, networkId: string): WeaponComponent
 	local poiseDamage = tool:GetAttribute("PoiseDamage")
 	local useCooldown = tool:GetAttribute("UseCooldown")
 	local definitionId = tool:GetAttribute("WeaponId")
+	local handle = tool:FindFirstChild("Handle")
+	local spawnCFrame = if handle ~= nil and handle:IsA("BasePart") then handle.CFrame else nil
 
 	local resolvedMaxDurability = math.floor(boundedNumber(maxDurability, 5, 1, 1000))
 	local resolvedDurability = math.floor(
@@ -64,9 +67,14 @@ function WeaponComponent.new(tool: Tool, networkId: string): WeaponComponent
 		PoiseDamage = boundedNumber(poiseDamage, 15, 0, CombatConfig.MaxPoise),
 		UseCooldown = boundedNumber(useCooldown, 0.65, 0.1, 10),
 		_worldParent = tool.Parent,
+		_spawnCFrame = spawnCFrame,
 		_lastUsedAt = -math.huge,
 		_useRevision = 0,
 	}, WeaponComponent)
+	tool.CanBeDropped = false
+	if handle ~= nil and handle:IsA("BasePart") then
+		handle.CanTouch = false
+	end
 
 	if self.Durability <= 0 then
 		tool.Enabled = false
@@ -83,17 +91,18 @@ function WeaponComponent:_replicate()
 	self.Instance:SetAttribute("UseCooldown", self.UseCooldown)
 end
 
-function WeaponComponent:IsOwnedBy(player: Player): boolean
+function WeaponComponent.IsOwnedBy(self: WeaponComponent, player: Player): boolean
 	local parent = self.Instance.Parent
-	if parent == player.Character then
+	local character = player.Character
+	if character ~= nil and parent == (character :: Instance) then
 		return true
 	end
 
 	local backpack = player:FindFirstChildOfClass("Backpack")
-	return backpack ~= nil and parent == backpack
+	return backpack ~= nil and parent == (backpack :: Instance)
 end
 
-function WeaponComponent:IsEquippedBy(player: Player): boolean
+function WeaponComponent.IsEquippedBy(self: WeaponComponent, player: Player): boolean
 	return player.Character ~= nil and self.Instance.Parent == player.Character
 end
 
@@ -158,7 +167,7 @@ function WeaponComponent:Drop(player: Player): boolean
 	return true
 end
 
-function WeaponComponent:ConsumeUse(): (boolean, number?, number?)
+function WeaponComponent.ConsumeUse(self: WeaponComponent): (boolean, number?, number?)
 	if not self:CanUse() then
 		return false, nil, nil
 	end
@@ -176,7 +185,11 @@ function WeaponComponent:ConsumeUse(): (boolean, number?, number?)
 	return true, previousUsedAt, self._useRevision
 end
 
-function WeaponComponent:RollbackUse(previousUsedAt: number, revision: number): boolean
+function WeaponComponent.RollbackUse(
+	self: WeaponComponent,
+	previousUsedAt: number,
+	revision: number
+): boolean
 	if revision ~= self._useRevision or self.Durability >= self.MaxDurability then
 		return false
 	end
@@ -188,10 +201,20 @@ function WeaponComponent:RollbackUse(previousUsedAt: number, revision: number): 
 	return true
 end
 
-function WeaponComponent:Reset()
+function WeaponComponent.Reset(self: WeaponComponent)
 	self._useRevision += 1
 	self.Durability = self.MaxDurability
 	self._lastUsedAt = -math.huge
+	local worldParent = self._worldParent
+	if
+		worldParent ~= nil and (worldParent == workspace or worldParent:IsDescendantOf(workspace))
+	then
+		self.Instance.Parent = worldParent
+	end
+	local handle = self.Instance:FindFirstChild("Handle")
+	if handle ~= nil and handle:IsA("BasePart") and self._spawnCFrame ~= nil then
+		handle.CFrame = self._spawnCFrame
+	end
 	self.Instance.Enabled = true
 	self:_replicate()
 end

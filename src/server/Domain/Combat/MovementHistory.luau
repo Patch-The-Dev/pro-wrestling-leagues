@@ -7,6 +7,8 @@ local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 type Sample = {
 	Position: Vector3,
 	Time: number,
+	WindowPosition: Vector3,
+	WindowTime: number,
 	HorizontalSpeed: number,
 	BlockedUntil: number,
 }
@@ -42,38 +44,47 @@ function MovementHistory.new(): MovementHistory
 	return setmetatable({ _samples = {} }, MovementHistory)
 end
 
-function MovementHistory:Observe(player: Player, position: Vector3, now: number)
+function MovementHistory:Observe(player: Player, position: Vector3, now: number): Vector3?
 	local sample = self._samples[player]
 	if sample == nil then
 		self._samples[player] = {
 			Position = position,
 			Time = now,
+			WindowPosition = position,
+			WindowTime = now,
 			HorizontalSpeed = 0,
 			BlockedUntil = 0,
 		}
-		return
+		return nil
 	end
 
 	local elapsed = now - sample.Time
-	if elapsed <= 0 then
-		return
+	if elapsed < 0 then
+		return nil
+	end
+	if
+		isImplausibleTravel(position - sample.Position, elapsed)
+		or isImplausibleTravel(position - sample.WindowPosition, now - sample.WindowTime)
+	then
+		sample.Time = now
+		sample.HorizontalSpeed = 0
+		sample.BlockedUntil = now + CombatConfig.Movement.SuspiciousMovementLockSeconds
+		return sample.Position
 	end
 	if elapsed < CombatConfig.Movement.SampleIntervalSeconds then
-		if isImplausibleTravel(position - sample.Position, elapsed) then
-			sample.BlockedUntil = now + CombatConfig.Movement.SuspiciousMovementLockSeconds
-		end
-		return
+		return nil
 	end
 
 	local offset = position - sample.Position
 	local distance = Vector3.new(offset.X, 0, offset.Z).Magnitude
-	if isImplausibleTravel(offset, elapsed) then
-		sample.BlockedUntil = now + CombatConfig.Movement.SuspiciousMovementLockSeconds
-	end
-
 	sample.HorizontalSpeed = distance / elapsed
 	sample.Position = position
 	sample.Time = now
+	if now - sample.WindowTime >= 1 then
+		sample.WindowPosition = position
+		sample.WindowTime = now
+	end
+	return nil
 end
 
 function MovementHistory:IsPlausible(player: Player, now: number): boolean

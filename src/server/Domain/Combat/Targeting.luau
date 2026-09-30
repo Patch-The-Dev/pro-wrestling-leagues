@@ -56,7 +56,12 @@ function Targeting.FindNearestOpponent(
 				then candidateCharacter:FindFirstChildOfClass("Humanoid")
 				else nil
 
-			if candidateRoot ~= nil and humanoid ~= nil and humanoid.Health > 0 then
+			if
+				candidateCharacter ~= nil
+				and candidateRoot ~= nil
+				and humanoid ~= nil
+				and humanoid.Health > 0
+			then
 				local offset = candidateRoot.Position - attackerRoot.Position
 				local distance = offset.Magnitude
 				if distance > 0 and distance <= bestDistance then

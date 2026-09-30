@@ -123,11 +123,18 @@ function Combatant.new(player: Player, character: Model): Combatant
 	humanoid.MaxHealth = CombatConfig.MaxHealth
 	humanoid.Health = CombatConfig.MaxHealth
 
-	trove:Add(stateMachine)
-	trove:Add(movement)
-	trove:Connect(stateMachine.Changed, function()
+	trove:Add(function()
+		stateMachine:Destroy()
+	end)
+	trove:Add(function()
+		movement:Destroy()
+	end)
+	local changedConnection = stateMachine.Changed:Connect(function()
 		self._movement:ApplyState(self:GetState())
 		self:_replicateSnapshot()
+	end)
+	trove:Add(function()
+		changedConnection:Disconnect()
 	end)
 	trove:Connect(humanoid.Died, function()
 		self._health = 0
@@ -139,7 +146,7 @@ function Combatant.new(player: Player, character: Model): Combatant
 	return self
 end
 
-function Combatant:_replicateSnapshot()
+function Combatant._replicateSnapshot(self: Combatant)
 	setAttributeIfChanged(self.Character, "CombatState", self:GetState())
 	setAttributeIfChanged(self.Character, "CombatHealth", self._health)
 	setAttributeIfChanged(self.Character, "CombatStamina", self._stamina)
@@ -147,19 +154,19 @@ function Combatant:_replicateSnapshot()
 	setAttributeIfChanged(self.Character, "CombatFinisher", self._finisher)
 end
 
-function Combatant:GetState(): CombatState
+function Combatant.GetState(self: Combatant): CombatState
 	return (self._stateMachine:Get() :: unknown) :: CombatState
 end
 
-function Combatant:CanSetState(nextState: CombatState): boolean
+function Combatant.CanSetState(self: Combatant, nextState: CombatState): boolean
 	return self._stateMachine:CanTransition(nextState)
 end
 
-function Combatant:SetState(nextState: CombatState): boolean
+function Combatant.SetState(self: Combatant, nextState: CombatState): boolean
 	return self._stateMachine:Transition(nextState)
 end
 
-function Combatant:GetSnapshot(): CombatSnapshot
+function Combatant.GetSnapshot(self: Combatant): CombatSnapshot
 	return {
 		State = self:GetState(),
 		Health = self._health,
@@ -173,11 +180,11 @@ function Combatant:GetSnapshot(): CombatSnapshot
 	}
 end
 
-function Combatant:CanSpendStamina(amount: number): boolean
+function Combatant.CanSpendStamina(self: Combatant, amount: number): boolean
 	return amount >= 0 and self._stamina >= amount
 end
 
-function Combatant:SpendStamina(amount: number): boolean
+function Combatant.SpendStamina(self: Combatant, amount: number): boolean
 	if not self:CanSpendStamina(amount) then
 		return false
 	end
@@ -188,7 +195,7 @@ function Combatant:SpendStamina(amount: number): boolean
 	return true
 end
 
-function Combatant:RestoreStamina(amount: number)
+function Combatant.RestoreStamina(self: Combatant, amount: number)
 	if amount <= 0 then
 		return
 	end
@@ -197,11 +204,11 @@ function Combatant:RestoreStamina(amount: number)
 	self:_replicateSnapshot()
 end
 
-function Combatant:CanSpendFinisher(amount: number): boolean
+function Combatant.CanSpendFinisher(self: Combatant, amount: number): boolean
 	return amount >= 0 and self._finisher >= amount
 end
 
-function Combatant:SpendFinisher(amount: number): boolean
+function Combatant.SpendFinisher(self: Combatant, amount: number): boolean
 	if not self:CanSpendFinisher(amount) then
 		return false
 	end
@@ -211,7 +218,7 @@ function Combatant:SpendFinisher(amount: number): boolean
 	return true
 end
 
-function Combatant:RestoreFinisher(amount: number)
+function Combatant.RestoreFinisher(self: Combatant, amount: number)
 	if amount <= 0 then
 		return
 	end
@@ -220,11 +227,11 @@ function Combatant:RestoreFinisher(amount: number)
 	self:_replicateSnapshot()
 end
 
-function Combatant:AddFinisher(amount: number)
+function Combatant.AddFinisher(self: Combatant, amount: number)
 	self:RestoreFinisher(amount)
 end
 
-function Combatant:ApplyDamage(spec: DamageSpec)
+function Combatant.ApplyDamage(self: Combatant, spec: DamageSpec)
 	if self:GetState() == "Dead" then
 		return
 	end
@@ -250,7 +257,7 @@ function Combatant:ApplyDamage(spec: DamageSpec)
 	self:_replicateSnapshot()
 end
 
-function Combatant:Step(deltaTime: number)
+function Combatant.Step(self: Combatant, deltaTime: number)
 	local state = self:GetState()
 	if state == "Dead" then
 		return
@@ -274,7 +281,7 @@ function Combatant:Step(deltaTime: number)
 	end
 end
 
-function Combatant:ResetForMatchEnd()
+function Combatant.ResetForMatchEnd(self: Combatant)
 	if self:GetState() == "Dead" then
 		return
 	end
@@ -298,7 +305,7 @@ function Combatant:ResetForMatchEnd()
 	self:_replicateSnapshot()
 end
 
-function Combatant:Destroy()
+function Combatant.Destroy(self: Combatant)
 	self._trove:Destroy()
 end
 

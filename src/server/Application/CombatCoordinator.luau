@@ -44,6 +44,7 @@ type DataSource = {
 
 type MatchSource = {
 	IsMatchActiveFor: (self: MatchSource, player: Player) -> boolean,
+	IsMatchInProgressFor: (self: MatchSource, player: Player) -> boolean,
 	GetOpponents: (self: MatchSource, player: Player) -> { Player },
 	FinishForKnockout: (self: MatchSource, loser: Player) -> (),
 	FinishMatch: (
@@ -71,6 +72,23 @@ export type Dependencies = {
 
 local CombatCoordinator = {}
 CombatCoordinator.__index = CombatCoordinator
+
+local function observeCharacterMovement(
+	movement: MovementHistory,
+	player: Player,
+	combatant: Combatant,
+	root: BasePart,
+	now: number
+): boolean
+	local lastValidPosition = movement:Observe(player, root.Position, now)
+	if lastValidPosition ~= nil then
+		CharacterAdapter.PlaceAt(
+			combatant.Character,
+			combatant.Character:GetPivot() + (lastValidPosition - root.Position)
+		)
+	end
+	return movement:IsPlausible(player, now)
+end
 
 export type CombatCoordinator = typeof(setmetatable(
 	{} :: {
@@ -108,8 +126,7 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 			return false
 		end
 		local now = workspace:GetServerTimeNow()
-		movement:Observe(player, root.Position, now)
-		return movement:IsPlausible(player, now)
+		return observeCharacterMovement(movement, player, combatant, root, now)
 	end
 	local recovery = RecoverySchedulerModule.new(function(player)
 		return combatants[player]
@@ -266,6 +283,18 @@ function CombatCoordinator:_removePlayer(player: Player)
 	self._reportedDeaths[player] = nil
 end
 
+function CombatCoordinator:SeedMovement(player: Player)
+	local combatant = self._combatants[player]
+	if combatant == nil or player.Character ~= combatant.Character then
+		return
+	end
+	local root = combatant.Character:FindFirstChild("HumanoidRootPart")
+	if root ~= nil and root:IsA("BasePart") then
+		self._movement:Forget(player)
+		self._movement:Observe(player, root.Position, workspace:GetServerTimeNow())
+	end
+end
+
 function CombatCoordinator:_step(deltaTime: number)
 	self._stepElapsed += deltaTime
 	if self._stepElapsed < CombatConfig.Movement.SampleIntervalSeconds then
@@ -275,12 +304,15 @@ function CombatCoordinator:_step(deltaTime: number)
 	self._stepElapsed = 0
 	local now = workspace:GetServerTimeNow()
 	for player, combatant in self._combatants do
-		if not self._matchSource:IsMatchActiveFor(player) then
+		if not self._matchSource:IsMatchInProgressFor(player) then
 			continue
 		end
 		local root = combatant.Character:FindFirstChild("HumanoidRootPart")
 		if root ~= nil and root:IsA("BasePart") then
-			self._movement:Observe(player, root.Position, now)
+			observeCharacterMovement(self._movement, player, combatant, root, now)
+		end
+		if not self._matchSource:IsMatchActiveFor(player) then
+			continue
 		end
 		combatant:Step(stepTime)
 
@@ -346,6 +378,10 @@ function CombatCoordinator:GetState(player: Player): CombatState?
 	return if combatant ~= nil then combatant:GetState() else nil
 end
 
+function CombatCoordinator:IsMovementPlausible(player: Player): boolean
+	return self._matchSource:IsMatchActiveFor(player) and self._isPlausibleCharacter(player)
+end
+
 function CombatCoordinator:EnterTurnbuckle(player: Player, turnbuckle: BasePart): boolean
 	if not self._matchSource:IsMatchActiveFor(player) then
 		return false
@@ -363,8 +399,11 @@ function CombatCoordinator:EnterTurnbuckle(player: Player, turnbuckle: BasePart)
 
 	combatant:SetState("ClimbingTurnbuckle")
 	local target = turnbuckle.CFrame * CFrame.new(0, turnbuckle.Size.Y * 0.5 + 2.5, 0)
-	CharacterAdapter.PlaceAt(combatant.Character, target)
-	self._movement:Forget(player)
+	if not CharacterAdapter.PlaceAt(combatant.Character, target) then
+		combatant:SetState("Roaming")
+		return false
+	end
+	self:SeedMovement(player)
 	self._recovery:ScheduleState(combatant, "ClimbingTurnbuckle", "SittingOnTurnbuckle", 0.55)
 	return true
 end

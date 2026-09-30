@@ -28,6 +28,8 @@ This repository presents the Luau application code for Pro Wrestling Leagues. Th
 - Persisted equipped moves cannot grant their own unlocks.
 - A cancelled countdown cannot begin combat, and stale entrance cues cannot play after match activation.
 - Running actions require plausible sampled travel, not velocity alone. Movement checks include vertical travel and current-position validation between sampling ticks.
+- Implausible movement does not establish a new trusted position after the lock expires. The character returns to the last valid position, and weapon pickup and drop use the same movement check as combat.
+- Registered weapons cannot be collected through default touch pickup or dropped through the backpack key path; their service controls those transitions.
 - Persistence is accessed through one repository boundary.
 - Stateful objects own cleanup through Trove.
 - Timed interactions use server time.

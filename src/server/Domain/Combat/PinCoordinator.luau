@@ -54,7 +54,7 @@ function PinCoordinator.new(
 	}, PinCoordinator)
 end
 
-function PinCoordinator:_settle(id: string, session: PinSession)
+function PinCoordinator._settle(self: PinCoordinator, id: string, session: PinSession)
 	if self._sessions[id] ~= session then
 		return
 	end
@@ -82,7 +82,7 @@ function PinCoordinator:_settle(id: string, session: PinSession)
 	session:Destroy()
 end
 
-function PinCoordinator:_schedulePrompt(id: string, session: PinSession)
+function PinCoordinator._schedulePrompt(self: PinCoordinator, id: string, session: PinSession)
 	if self._sessions[id] ~= session or session:IsFinished() then
 		self:_settle(id, session)
 		return

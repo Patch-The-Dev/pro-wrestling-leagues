@@ -5,11 +5,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local AudioSystem = require(script.Parent.Parent.Systems.AudioSystem)
 local CameraSystem = require(script.Parent.Parent.Systems.CameraSystem)
 local EntranceConfig = require(ReplicatedStorage.Shared.Config.EntranceConfig)
-local Knit = require(ReplicatedStorage.Packages.Knit)
+local Knit = require(script.Parent.Parent.KnitClient)
 local LightingSystem = require(script.Parent.Parent.Systems.LightingSystem)
+local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local PyroSystem = require(script.Parent.Parent.Systems.PyroSystem)
 local Trove = require(ReplicatedStorage.Packages.Trove)
+
+type EntranceCue = NetworkTypes.EntranceCue
 
 local EntranceController = Knit.CreateController({
 	Name = "EntranceController",
@@ -44,7 +47,7 @@ function EntranceController:KnitStart()
 			self:_stopPresentation()
 		end
 	end)
-	self._trove:Connect(self._service.EntranceCue, function(cue)
+	self._trove:Connect(self._service.EntranceCue, function(cue: EntranceCue)
 		local generation = self._generation
 		local waitSeconds = math.max(0, cue.StartsAt - workspace:GetServerTimeNow())
 		local promise = Promise.delay(waitSeconds):andThen(function()

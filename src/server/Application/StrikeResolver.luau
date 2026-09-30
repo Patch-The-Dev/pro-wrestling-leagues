@@ -158,7 +158,8 @@ function StrikeResolver:Request(
 			then
 				return
 			end
-			local targetPlayer: Player? = self._findTarget(player, range)
+			local targetPlayer = self._findTarget(player, range)
+			local resolvedTarget: Player? = nil
 			local targetCombatant = if targetPlayer ~= nil
 				then self._getCombatant(targetPlayer)
 				else nil
@@ -171,10 +172,9 @@ function StrikeResolver:Request(
 				targetCombatant:ApplyDamage(damage)
 				self._recovery:ScheduleVictim(targetCombatant, damage.StunSeconds)
 				event.TargetUserId = targetPlayer.UserId
-			else
-				targetPlayer = nil
+				resolvedTarget = targetPlayer
 			end
-			self:_emitResolved(player, targetPlayer, event)
+			self:_emitResolved(player, resolvedTarget, event)
 		end)
 		self._trove:AddPromise(impact)
 	end

@@ -177,6 +177,7 @@ return function()
 					spawn.Parent = spawns
 				end
 
+				local firstPositionAtStarting: number? = nil
 				local coordinator = MatchCoordinator.new({
 					DataSource = {
 						IsLoaded = function()
@@ -200,7 +201,10 @@ return function()
 							error("queue failure")
 						end
 					end,
-					EmitMatchChanged = function()
+					EmitMatchChanged = function(player, update)
+						if update.State == "Starting" and player == firstPlayer then
+							firstPositionAtStarting = firstCharacter:GetPivot().Position.X
+						end
 						if failingStep == "match" then
 							error("match notification failure")
 						end
@@ -213,6 +217,9 @@ return function()
 				expect(coordinator._matchesByPlayer[secondPlayer]).to.equal(nil)
 				expect(firstCharacter:GetPivot().Position.X).to.equal(10)
 				expect(secondCharacter:GetPivot().Position.X).to.equal(20)
+				if failingStep ~= "queue" then
+					expect(firstPositionAtStarting).to.equal(110)
+				end
 				expect(coordinator._arenaRegistry:Reserve("probe", 2, "TrainingRing")).to.equal(
 					"TrainingRing"
 				)

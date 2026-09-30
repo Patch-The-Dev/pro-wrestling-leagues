@@ -59,6 +59,9 @@ function CombatService:KnitStart()
 	self._trove:Connect(matchService.SessionClosed, function(players)
 		coordinator:ResetForMatchEnd(players)
 	end)
+	self._trove:Connect(matchService.CharacterPlaced, function(player)
+		coordinator:SeedMovement(player)
+	end)
 end
 
 function CombatService:_getCoordinator(): CombatCoordinator
@@ -69,6 +72,10 @@ end
 
 function CombatService:GetState(player: Player): CombatTypes.CombatState?
 	return self:_getCoordinator():GetState(player)
+end
+
+function CombatService:IsMovementPlausible(player: Player): boolean
+	return self:_getCoordinator():IsMovementPlausible(player)
 end
 
 function CombatService:EnterTurnbuckle(player: Player, turnbuckle: BasePart): boolean

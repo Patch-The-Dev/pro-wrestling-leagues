@@ -27,7 +27,7 @@ The match flow pairs two eligible players, reserves an arena, records both chara
 
 Combat includes a three-hit strike chain, running attacks, directional grapples, finishers, reversals, pins, stamina, health, poise, and finisher charge. `Combatant` owns the state of each fighter. `CombatMovement` locks walking and jumping during incapacitating and committed move states, temporarily requests server network ownership of the character root where the engine permits it, and restores movement on recovery. Damage can interrupt taunts, turnbuckle actions, grapples, pins, and standing up; a poise break is consumed only when the knockdown transition succeeds. `ActionBudget` checks cooldowns and resources. Strike animations start when the server accepts an action; the server checks range, facing, line of sight, and match state again at the move's configured impact time before applying damage. Grapples recheck the original target after the reversal window and cancel if the match, movement, distance, facing, or line of sight is no longer valid. Timed interactions and delayed recovery are owned by the corresponding session or scheduler so old work cannot change a later combat state. Pin input uses a visible client timing bar and a capped allowance derived from server-measured round-trip latency.
 
-The server also manages arena weapons and turnbuckle interactions. Weapon instances are tracked by identity and arena, with ownership, cooldown, and durability checks. CollectionService tags bind world behavior without copying a handler script into every asset.
+The server also manages arena weapons and turnbuckle interactions. Weapon instances are tracked by identity and arena, with ownership, cooldown, and durability checks. Pickup and drop requests require a plausible current character position; pickup also checks the active match, arena, availability, and range. Default touch pickup and backpack dropping are disabled for registered weapons so those paths cannot bypass service validation. Reset returns each weapon to its recorded arena parent and spawn position. CollectionService tags bind world behavior without copying a handler script into every asset.
 
 The client reuses animation tracks for repeated actions on the same Animator and releases them when that character is removed.
 
@@ -47,7 +47,7 @@ Server service → application coordinator → domain rules
 Authoritative state / persistence → replicated events and presentation
 ```
 
-Clients send bounded requests such as an action name, grapple direction, pin input, purchase, or loadout change. They do not choose a damage amount, report a successful hit, award currency, or submit a match result. [`Contracts.luau`](src/shared/Network/Contracts.luau) validates network values at runtime, and [`RequestGateService`](src/server/Services/RequestGateService.luau) applies per-player throttling. Character attributes mirror selected state for presentation; combat rules read the server-owned `Combatant` instead. Because Roblox character movement can be client owned, [`MovementHistory`](src/server/Domain/Combat/MovementHistory.luau) checks horizontal travel and vertical ascent and descent, including movement between regular samples. Combat polling runs at the configured sample interval for active match participants; action validation also checks the current position. This is a plausibility check, not a claim of complete movement authority.
+Clients send bounded requests such as an action name, grapple direction, pin input, purchase, or loadout change. They do not choose a damage amount, report a successful hit, award currency, or submit a match result. [`Contracts.luau`](src/shared/Network/Contracts.luau) validates network values at runtime, and [`RequestGateService`](src/server/Services/RequestGateService.luau) applies per-player throttling. Character attributes mirror selected state for presentation; combat rules read the server-owned `Combatant` instead. Because Roblox character movement can be client owned, [`MovementHistory`](src/server/Domain/Combat/MovementHistory.luau) checks horizontal and vertical travel between samples and over a rolling window. Match placement seeds the first trusted position. An implausible move is rejected and the character is returned to its last valid position; waiting at the destination does not make it valid. Combat and weapon requests also check the current position. These limits are a plausibility check and should be tuned against live movement and network conditions.
 
 ## Controls
 
@@ -90,7 +90,7 @@ Connect Roblox Studio to the Rojo server to sync the source tree. For an XML pla
 rojo build default.project.json -o ProWrestlingLeagues.rbxlx
 ```
 
-The [source checks workflow](.github/workflows/ci.yml) installs the pinned packages, checks that the lockfile stays unchanged, runs formatting and lint, type-checks persistence and selected gameplay and client modules, and builds both Rojo projects. The Luau analyzer uses versioned Roblox definitions with a checked checksum. The type gate covers the files named in the workflow; it does not claim full-project type analysis. To run the format, lint, and build checks locally:
+The [source checks workflow](.github/workflows/ci.yml) installs the pinned packages, checks that the lockfile stays unchanged, runs formatting and lint, type-checks the client, shared code, server adapters, components, domain rules, networking, and persistence, and builds both Rojo projects. The Luau analyzer uses versioned Roblox definitions with a checked checksum. Application coordinators and services are not yet in that analyzer gate; their runtime behavior is exercised by the Studio suite and bootstrap check. To run the format, lint, and build checks locally:
 
 ```sh
 git diff --exit-code -- wally.lock
@@ -100,7 +100,7 @@ rojo build default.project.json -o ProWrestlingLeagues.rbxlx
 rojo build test.project.json -o ProWrestlingLeaguesTests.rbxlx
 ```
 
-The isolated TestEZ place covers match state, startup rollback, character return before arena release, queue retries, slow reward claims, shutdown settlement and pending loads, duplicate-safe rewards, damage reactions, combat movement locks, grapple validation, horizontal and vertical movement plausibility, strike impact timing, weapon rollback, reversals, pin timing, player data ownership, and recovery cancellation. On Windows, the checked-in runner builds the test place, runs it in Studio, and fails if the passing result is missing:
+The isolated TestEZ place covers match state, startup rollback, character return before arena release, queue retries, slow reward claims, shutdown settlement and pending loads, duplicate-safe rewards, damage reactions, combat movement locks, grapple validation, horizontal and vertical movement plausibility, teleport rejection after the lock expires, weapon pickup validation, strike impact timing, weapon rollback, reversals, pin timing, player data ownership, and recovery cancellation. On Windows, the checked-in runner builds the test place, runs it in Studio, and fails if the passing result is missing:
 
 ```powershell
 .\tests\RunStudioTests.ps1

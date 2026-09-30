@@ -2,7 +2,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Knit = require(ReplicatedStorage.Packages.Knit)
+local Knit = require(script.Parent.Parent.KnitClient)
 local Trove = require(ReplicatedStorage.Packages.Trove)
 
 local ArenaController = Knit.CreateController({

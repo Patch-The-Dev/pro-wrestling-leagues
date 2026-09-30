@@ -24,7 +24,7 @@ function RequestGuard.new(): RequestGuard
 			Customization = RateLimiter.new(6, 2),
 			Economy = RateLimiter.new(4, 1),
 			Data = RateLimiter.new(4, 1),
-		},
+		} :: { [Channel]: RateLimiter.RateLimiter },
 	}, RequestGuard)
 end
 

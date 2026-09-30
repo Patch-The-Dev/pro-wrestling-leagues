@@ -58,7 +58,7 @@ function LightingSystem:_restore()
 	end
 end
 
-function LightingSystem:PlayPreset(presetName: string, duration: number)
+function LightingSystem.PlayPreset(self: LightingSystem, presetName: string, duration: number)
 	local preset = EntranceConfig.LightingPresets[presetName]
 	if preset == nil then
 		return Promise.resolve()
@@ -81,7 +81,7 @@ function LightingSystem:PlayPreset(presetName: string, duration: number)
 	return promise
 end
 
-function LightingSystem:Stop()
+function LightingSystem.Stop(self: LightingSystem)
 	self._generation += 1
 	self:_restore()
 end

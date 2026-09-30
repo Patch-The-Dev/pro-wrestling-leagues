@@ -11,6 +11,7 @@ local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 local Trove = require(ReplicatedStorage.Packages.Trove)
 local WeaponAttack = require(script.Parent.Parent.Domain.Combat.WeaponAttack)
 local WeaponComponentModule = require(script.Parent.Parent.Components.WeaponComponent)
+local WeaponPickup = require(script.Parent.Parent.Domain.Combat.WeaponPickup)
 
 type WeaponAction = NetworkTypes.WeaponAction
 type WeaponComponent = WeaponComponentModule.WeaponComponent
@@ -126,19 +127,28 @@ function WeaponService:RequestAction(
 	end
 
 	if action == "Pickup" then
-		if not self._matchService:IsMatchActiveFor(player) then
-			return false, "No active match"
-		end
-		if not self._matchService:IsInstanceInPlayerArena(player, component.Instance) then
-			return false, "Weapon is outside this match arena"
-		end
-		if not component:IsAvailableForPickup() or not self:_isNearWeapon(player, component) then
-			return false, "Weapon is not available in range"
-		end
-		if not component:Pickup(player) then
-			return false, "Weapon cannot be picked up"
+		local accepted, message = WeaponPickup.Try(
+			player,
+			component.Instance,
+			self._matchService,
+			self._combatService,
+			function()
+				return component:IsAvailableForPickup()
+			end,
+			function()
+				return self:_isNearWeapon(player, component)
+			end,
+			function()
+				return component:Pickup(player)
+			end
+		)
+		if not accepted then
+			return false, message
 		end
 	elseif action == "Drop" then
+		if not self._combatService:IsMovementPlausible(player) then
+			return false, "Character movement is not plausible"
+		end
 		if not component:Drop(player) then
 			return false, "Weapon is not owned by this player"
 		end
