@@ -2,7 +2,7 @@
 
 [![Source checks](https://github.com/Patch-The-Dev/pro-wrestling-leagues/actions/workflows/ci.yml/badge.svg)](https://github.com/Patch-The-Dev/pro-wrestling-leagues/actions/workflows/ci.yml)
 
-**A Roblox wrestling game by PatchTheDev.** This repository presents its Luau application code as a Rojo project for technical review.
+**A Roblox wrestling game by PatchTheDev.** This repository contains its Luau systems, organized with Rojo for development and code review.
 
 [Play Pro Wrestling Leagues on Roblox](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES) · [View the project and gameplay footage](https://www.patchthedev.com/work/pro-wrestling-leagues) · [PatchTheDev portfolio](https://www.patchthedev.com)
 
@@ -23,7 +23,7 @@ Start with the [review guide](docs/REVIEW_GUIDE.md) for a short reading order, o
 
 ## Gameplay systems in this code
 
-The match flow pairs two eligible players, reserves an arena, records both characters' starting positions, places them at ring spawns, runs both entrances, then starts an active session. Placement validates both characters before moving either one and rolls back a partial placement. The countdown is derived from the entrance timing and checks that both original characters are alive and loaded before activation. A session records pin, knockout, forfeit, or vote results. After the match or a cancelled start, each original character still owned by its player returns to its recorded position before the arena is released. A respawned character is never moved by an old session. Queued players are retried when an occupied arena is released or a new arena is registered.
+The match flow pairs two eligible players, reserves an arena, records both characters' starting positions, places them at ring spawns, runs both entrances, then starts an active session. Placement validates both characters before moving either one and rolls back a partial placement. Startup rolls back the reservation, player mappings, and placement if a notification or entrance dependency fails. The countdown is derived from the entrance timing and checks that both original characters are alive and loaded before activation. A session records pin, knockout, forfeit, or vote results. After the match or a cancelled start, each original character still owned by its player returns to its recorded position before the arena is released. A respawned character is never moved by an old session. Queued players are retried when an occupied arena is released or a new arena is registered.
 
 Combat includes a three-hit strike chain, running attacks, directional grapples, finishers, reversals, pins, stamina, health, poise, and finisher charge. `Combatant` owns the state of each fighter. `CombatMovement` locks walking and jumping during incapacitating and committed move states, temporarily requests server network ownership of the character root where the engine permits it, and restores movement on recovery. Damage can interrupt taunts, turnbuckle actions, grapples, pins, and standing up; a poise break is consumed only when the knockdown transition succeeds. `ActionBudget` checks cooldowns and resources. Strike animations start when the server accepts an action; the server checks range, facing, line of sight, and match state again at the move's configured impact time before applying damage. Grapples recheck the original target after the reversal window and cancel if the match, movement, distance, facing, or line of sight is no longer valid. Timed interactions and delayed recovery are owned by the corresponding session or scheduler so old work cannot change a later combat state. Pin input uses a visible client timing bar and a capped allowance derived from server-measured round-trip latency.
 
@@ -100,7 +100,7 @@ rojo build default.project.json -o ProWrestlingLeagues.rbxlx
 rojo build test.project.json -o ProWrestlingLeaguesTests.rbxlx
 ```
 
-The isolated TestEZ place covers match state, character return before arena release, queue retries, slow reward claims, shutdown settlement, duplicate-safe rewards, damage reactions, combat movement locks, grapple validation, horizontal and vertical movement plausibility, strike impact timing, weapon rollback, reversals, pin timing, player data ownership, and recovery cancellation. On Windows, the checked-in runner builds the test place, runs it in Studio, and fails if the passing result is missing:
+The isolated TestEZ place covers match state, startup rollback, character return before arena release, queue retries, slow reward claims, shutdown settlement and pending loads, duplicate-safe rewards, damage reactions, combat movement locks, grapple validation, horizontal and vertical movement plausibility, strike impact timing, weapon rollback, reversals, pin timing, player data ownership, and recovery cancellation. On Windows, the checked-in runner builds the test place, runs it in Studio, and fails if the passing result is missing:
 
 ```powershell
 .\tests\RunStudioTests.ps1
@@ -131,4 +131,4 @@ The source tree is the reviewable application layer; the [live Roblox game](http
 - [Runtime assets](docs/RUNTIME_ASSETS.md): arena, weapon, animation, and entrance contracts.
 - [Engineering notes](docs/ENGINEERING_NOTES.md): source organization and design decisions.
 
-**Note:** This repository presents the Pro Wrestling Leagues code as a code portfolio. My day-to-day contribution history is tied to a different GitHub account for organizational clarity and client privacy. The source here is the result of that work, so this account's commit history does not represent the game's full development history. You can [play the full Pro Wrestling Leagues game](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES).
+**Note:** I built Pro Wrestling Leagues as PatchTheDev. [Roblox records the game's creation in April 2025](https://games.roblox.com/v1/games?universeIds=7587071589), and you can [play the full game](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES). This repository was published later to make its Luau source available for review. The [project page](https://www.patchthedev.com/work/pro-wrestling-leagues) includes gameplay footage and further details.

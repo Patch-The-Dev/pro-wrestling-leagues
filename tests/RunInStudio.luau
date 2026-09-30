@@ -25,5 +25,8 @@ end
 
 print(`{passed} passed, {failed} failed, {skipped} skipped`)
 
+if failed > 0 then
+	print("PRO_WRESTLING_LEAGUES_TESTS_FAIL")
+end
 assert(failed == 0, string.format("%d Pro Wrestling Leagues tests failed", failed))
 print("PRO_WRESTLING_LEAGUES_TESTS_PASS")

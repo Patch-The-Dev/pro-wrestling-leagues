@@ -120,5 +120,65 @@ return function()
 			expect(releasedAll).to.equal(true)
 			departure:Destroy()
 		end)
+
+		it("includes a profile that finishes loading during shutdown", function()
+			local first = { UserId = 31 } :: any
+			local second = { UserId = 32 } :: any
+			local loaded = { first }
+			local pendingLoad = true
+			local callbacks = {}
+			local released = {}
+			local done = false
+			local resumeFirst: (() -> ())? = nil
+			local firstGate = Promise.new(function(resolve)
+				resumeFirst = resolve
+			end)
+			local departure = PlayerDeparture.new({
+				GetLoadedPlayers = function()
+					return table.clone(loaded)
+				end,
+				Release = function(_, player)
+					released[player] = true
+					local index = table.find(loaded, player)
+					if index ~= nil then
+						table.remove(loaded, index)
+					end
+				end,
+				ReleaseAll = function() end,
+			} :: any)
+			departure:SetBeforeRelease(function(player)
+				callbacks[player] = true
+				if player == first then
+					firstGate:await()
+				end
+			end)
+			local deadline = os.clock() + 3
+			task.defer(function()
+				departure:ReleaseAll(deadline, function()
+					return pendingLoad
+				end)
+				done = true
+			end)
+			while not callbacks[first] and os.clock() < deadline do
+				task.wait(0.02)
+			end
+			expect(callbacks[first]).to.equal(true)
+			table.insert(loaded, second)
+			pendingLoad = false
+			while not callbacks[second] and os.clock() < deadline do
+				task.wait(0.02)
+			end
+			expect(callbacks[second]).to.equal(true)
+			expect(released[first]).to.equal(nil)
+			assert(resumeFirst ~= nil, "First shutdown release gate was not created")
+			resumeFirst()
+			while not done and os.clock() < deadline do
+				task.wait(0.02)
+			end
+			expect(done).to.equal(true)
+			expect(released[first]).to.equal(true)
+			expect(released[second]).to.equal(true)
+			departure:Destroy()
+		end)
 	end)
 end

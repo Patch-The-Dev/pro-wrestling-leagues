@@ -149,6 +149,81 @@ return function()
 			secondCharacter:Destroy()
 		end)
 
+		for _, failingStep in { "queue", "match", "entrance" } do
+			it(`rolls back reserved arenas when {failingStep} startup fails`, function()
+				local function makePlayer(userId: number, x: number)
+					local character = Instance.new("Model")
+					local humanoid = Instance.new("Humanoid")
+					humanoid.Parent = character
+					local root = Instance.new("Part")
+					root.Name = "HumanoidRootPart"
+					root.Parent = character
+					character:PivotTo(CFrame.new(x, 5, 0))
+					return { UserId = userId, Character = character } :: any, character
+				end
+
+				local firstPlayer, firstCharacter = makePlayer(101, 10)
+				local secondPlayer, secondCharacter = makePlayer(102, 20)
+				local arena = Instance.new("Model")
+				arena:SetAttribute("ArenaId", "TrainingRing")
+				arena:SetAttribute("RequiredPlayers", 2)
+				local spawns = Instance.new("Folder")
+				spawns.Name = "Spawns"
+				spawns.Parent = arena
+				for index = 1, 2 do
+					local spawn = Instance.new("Part")
+					spawn.Name = tostring(index)
+					spawn.CFrame = CFrame.new(100 + 10 * index, 5, 0)
+					spawn.Parent = spawns
+				end
+
+				local coordinator = MatchCoordinator.new({
+					DataSource = {
+						IsLoaded = function()
+							return true
+						end,
+					},
+					EconomySource = {
+						ApplyMatchReward = function()
+							return true
+						end,
+					},
+					EntranceSource = {
+						PlayForPlayers = function()
+							if failingStep == "entrance" then
+								error("entrance failure")
+							end
+						end,
+					},
+					EmitQueueChanged = function()
+						if failingStep == "queue" then
+							error("queue failure")
+						end
+					end,
+					EmitMatchChanged = function()
+						if failingStep == "match" then
+							error("match notification failure")
+						end
+					end,
+					OnSessionClosed = function() end,
+				})
+				coordinator._arenaRegistry:Add(arena)
+				expect(coordinator:_createMatch({ firstPlayer, secondPlayer })).to.equal(false)
+				expect(coordinator._matchesByPlayer[firstPlayer]).to.equal(nil)
+				expect(coordinator._matchesByPlayer[secondPlayer]).to.equal(nil)
+				expect(firstCharacter:GetPivot().Position.X).to.equal(10)
+				expect(secondCharacter:GetPivot().Position.X).to.equal(20)
+				expect(coordinator._arenaRegistry:Reserve("probe", 2, "TrainingRing")).to.equal(
+					"TrainingRing"
+				)
+				coordinator._arenaRegistry:Release("probe")
+				coordinator:Destroy()
+				firstCharacter:Destroy()
+				secondCharacter:Destroy()
+				arena:Destroy()
+			end)
+		end
+
 		it("retries queued players when an arena is registered", function()
 			local coordinator = createCoordinator()
 			local attempts = 0

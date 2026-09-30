@@ -59,24 +59,39 @@ function PlayerDeparture.Release(self: PlayerDeparture, player: Player)
 	self._pending -= 1
 end
 
-function PlayerDeparture.ReleaseAll(self: PlayerDeparture)
-	local loadedPlayers = self._repository:GetLoadedPlayers()
-	local remaining = #loadedPlayers
-	for _, player in loadedPlayers do
-		task.spawn(function()
-			local result = { pcall(self.Release, self, player) }
-			if result[1] ~= true then
-				warn(`Shutdown release failed for user {player.UserId}: {tostring(result[2])}`)
+function PlayerDeparture.ReleaseAll(
+	self: PlayerDeparture,
+	shutdownDeadline: number?,
+	hasPendingLoads: (() -> boolean)?
+)
+	local deadline = shutdownDeadline or os.clock() + SHUTDOWN_WAIT_SECONDS
+	local scheduled: { [Player]: boolean } = {}
+	local remaining = 0
+	while true do
+		for _, player in self._repository:GetLoadedPlayers() do
+			if not scheduled[player] then
+				scheduled[player] = true
+				remaining += 1
+				task.spawn(function()
+					local result = { pcall(self.Release, self, player) }
+					if result[1] ~= true then
+						warn(
+							`Shutdown release failed for user {player.UserId}: {tostring(result[2])}`
+						)
+					end
+					remaining -= 1
+				end)
 			end
-			remaining -= 1
-		end)
-	end
-	local deadline = os.clock() + SHUTDOWN_WAIT_SECONDS
-	while (remaining > 0 or self._pending > 0) and os.clock() < deadline do
+		end
+		local loading = hasPendingLoads ~= nil and hasPendingLoads()
+		if not loading and remaining == 0 and self._pending == 0 then
+			break
+		end
+		if os.clock() >= deadline then
+			warn("Profile loads or releases exceeded the shutdown wait budget")
+			break
+		end
 		task.wait(0.1)
-	end
-	if remaining > 0 or self._pending > 0 then
-		warn("Profile release exceeded the shutdown wait budget")
 	end
 	self._repository:ReleaseAll()
 end

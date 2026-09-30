@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local PendingProfileLoads = require(script.Parent.Parent.Persistence.PendingProfileLoads)
 local PlayerDataSnapshot = require(ReplicatedStorage.Shared.Util.PlayerDataSnapshot)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
 local PlayerDeparture = require(script.Parent.Parent.Persistence.PlayerDeparture)
@@ -20,28 +21,41 @@ local DataService = Knit.CreateService({
 	},
 })
 
+local SHUTDOWN_WAIT_SECONDS = 25
+
 function DataService:KnitInit()
 	self._trove = Trove.new()
 	self._repository = PlayerRepository.new()
 	self._departure = PlayerDeparture.new(self._repository)
 	self._trove:Add(self._departure)
 	self._closing = false
-	self._loading = {}
+	self._pendingLoads = PendingProfileLoads.new()
 	self.Loaded = Signal.new()
 	self._trove:Add(self.Loaded)
 end
 
 function DataService:_loadPlayer(player: Player)
-	if self._closing or self._loading[player] ~= nil or self._repository:IsLoaded(player) then
+	if
+		self._closing
+		or self._repository:IsLoaded(player)
+		or not self._pendingLoads:Start(player)
+	then
 		return
 	end
 
-	local promise = self._repository:LoadAsync(player)
-	self._loading[player] = promise
+	local started, promise = pcall(self._repository.LoadAsync, self._repository, player)
+	if not started then
+		self._pendingLoads:Finish(player)
+		warn(`Failed to start player data load for {player.UserId}: {tostring(promise)}`)
+		if player.Parent == Players then
+			player:Kick("Your player data could not be loaded. Please reconnect.")
+		end
+		return
+	end
 
 	promise
 		:andThen(function()
-			self._loading[player] = nil
+			self._pendingLoads:Finish(player)
 			if self._closing then
 				self._departure:Release(player)
 			elseif player.Parent == Players then
@@ -50,7 +64,7 @@ function DataService:_loadPlayer(player: Player)
 			end
 		end)
 		:catch(function(err)
-			self._loading[player] = nil
+			self._pendingLoads:Finish(player)
 			warn(`Failed to load player data for {player.UserId}: {tostring(err)}`)
 			if player.Parent == Players then
 				player:Kick("Your player data could not be loaded. Please reconnect.")
@@ -65,7 +79,6 @@ function DataService:KnitStart()
 	end)
 
 	self._trove:Connect(Players.PlayerRemoving, function(player)
-		self._loading[player] = nil
 		self._departure:Release(player)
 	end)
 
@@ -75,7 +88,10 @@ function DataService:KnitStart()
 
 	game:BindToClose(function()
 		self._closing = true
-		self._departure:ReleaseAll()
+		local deadline = os.clock() + SHUTDOWN_WAIT_SECONDS
+		self._departure:ReleaseAll(deadline, function()
+			return self._pendingLoads:HasPending()
+		end)
 	end)
 end
 

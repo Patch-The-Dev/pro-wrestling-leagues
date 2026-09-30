@@ -42,18 +42,32 @@ Remove-Item -LiteralPath $output -ErrorAction SilentlyContinue
 $runnerPath = Join-Path $PSScriptRoot $runner
 $arguments = '--task RunScript --localPlaceFile "{0}" --runScriptFile "{1}" --outputFile "{2}" --quitAfterExecution' -f $place, $runnerPath, $output
 $process = Start-Process -FilePath $StudioPath -ArgumentList $arguments -WindowStyle Hidden -PassThru
-try {
-    Wait-Process -Id $process.Id -Timeout 180 -ErrorAction Stop
-} catch {
-    Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-    throw 'Studio did not finish the check within three minutes.'
+$deadline = (Get-Date).AddSeconds(180)
+$report = ''
+while ((Get-Date) -lt $deadline) {
+    if (Test-Path -LiteralPath $output) {
+        $report = Get-Content -LiteralPath $output -Raw
+        if ($report -match "(?m)^\s*$sentinel\s*$") {
+            break
+        }
+        if (-not $Bootstrap -and $report -match '(?m)^\s*PRO_WRESTLING_LEAGUES_TESTS_FAIL\s*$') {
+            Write-Output $report
+            throw 'Pro Wrestling Leagues Studio tests failed.'
+        }
+    }
+    Start-Sleep -Milliseconds 500
 }
-$process.Refresh()
+if ($report -notmatch "(?m)^\s*$sentinel\s*$") {
+    $process.Refresh()
+    if (-not $process.HasExited) {
+        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+    }
+    if ($report) {
+        Write-Output $report
+    }
+    throw 'Studio did not produce a passing report within three minutes.'
+}
 
-if ($process.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $output)) {
-    throw "Studio did not produce a passing report. Exit code: $($process.ExitCode)"
-}
-$report = Get-Content -LiteralPath $output -Raw
 if ($report -notmatch "(?m)^\s*$sentinel\s*$" -or (-not $Bootstrap -and $report -notmatch '(?m)^\s*\d+ passed, 0 failed, 0 skipped\s*$')) {
     Write-Output $report
     throw 'Pro Wrestling Leagues Studio check failed.'

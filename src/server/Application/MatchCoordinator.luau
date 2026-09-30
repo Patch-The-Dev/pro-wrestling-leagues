@@ -208,48 +208,19 @@ function MatchCoordinator:_matchmake()
 	end
 end
 
-function MatchCoordinator:_createMatch(players: { Player }): boolean
-	local id = HttpService:GenerateGUID(false)
-	local arenaId = self._arenaRegistry:Reserve(id, #players, MatchConfig.DefaultArenaId)
-	if arenaId == nil then
-		return false
+function MatchCoordinator:_notifyMatchChanged(player: Player, update: MatchUpdate)
+	local notified, notificationError = pcall(self._emitMatchChanged, player, update)
+	if not notified then
+		warn(`Match notification failed for user {player.UserId}: {tostring(notificationError)}`)
 	end
+end
 
-	local session = MatchSessionModule.new(id, arenaId, players)
-	assert(session:BeginStarting(), "New match session must enter Starting state")
-	self._sessions[id] = session
-
-	local startsAt = workspace:GetServerTimeNow() + MatchConfig.StartCountdownSeconds
-	for _, player in players do
-		self._matchesByPlayer[player] = session
-		self._emitQueueChanged(player, false)
-		self._emitMatchChanged(player, {
-			Id = session.Id,
-			State = "Starting",
-			ArenaId = session.ArenaId,
-			StartsAt = startsAt,
-		})
-	end
-
-	if not self:_placePlayers(session) then
-		warn(
-			string.format(
-				"Arena %q does not provide enough valid spawn points for match %s",
-				session.ArenaId,
-				session.Id
-			)
-		)
-		self:_abortStartingSession(session)
-		return false
-	end
-	local startingCharacters: { [Player]: Model } = {}
-	for _, player in players do
-		startingCharacters[player] = player.Character :: Model
-	end
-	self._entranceSource:PlayForPlayers(players, session.ArenaId, session.Id, startsAt)
-
+function MatchCoordinator:_startCountdown(
+	session: MatchSession,
+	startingCharacters: { [Player]: Model }
+)
 	local countdown = Promise.delay(MatchConfig.StartCountdownSeconds):andThen(function()
-		if self._sessions[id] ~= session or session.State ~= "Starting" then
+		if self._sessions[session.Id] ~= session or session.State ~= "Starting" then
 			return
 		end
 		for _, player in session.Players do
@@ -259,7 +230,7 @@ function MatchCoordinator:_createMatch(players: { Player }): boolean
 				or player.Character ~= startingCharacters[player]
 				or not isCharacterReady(player)
 			then
-				self:_abortStartingSession(session)
+				self:_cancelStartingSession(session)
 				for _, candidate in session.Players do
 					if
 						candidate ~= player
@@ -277,7 +248,7 @@ function MatchCoordinator:_createMatch(players: { Player }): boolean
 		end
 
 		for _, player in session.Players do
-			self._emitMatchChanged(player, {
+			self:_notifyMatchChanged(player, {
 				Id = session.Id,
 				State = "Active",
 				ArenaId = session.ArenaId,
@@ -286,7 +257,76 @@ function MatchCoordinator:_createMatch(players: { Player }): boolean
 		end
 	end)
 	self._trove:AddPromise(countdown)
-	return true
+end
+
+function MatchCoordinator:_createMatch(players: { Player }): boolean
+	local id = HttpService:GenerateGUID(false)
+	local session: MatchSession? = nil
+	local initialized, result = pcall(function(): boolean
+		local arenaId = self._arenaRegistry:Reserve(id, #players, MatchConfig.DefaultArenaId)
+		if arenaId == nil then
+			return false
+		end
+
+		local startingSession = MatchSessionModule.new(id, arenaId, players)
+		session = startingSession
+		self._sessions[id] = startingSession
+		assert(startingSession:BeginStarting(), "New match session must enter Starting state")
+
+		local startsAt = workspace:GetServerTimeNow() + MatchConfig.StartCountdownSeconds
+		for _, player in players do
+			self._matchesByPlayer[player] = startingSession
+			self._emitQueueChanged(player, false)
+			self._emitMatchChanged(player, {
+				Id = id,
+				State = "Starting",
+				ArenaId = arenaId,
+				StartsAt = startsAt,
+			})
+		end
+
+		if not self:_placePlayers(startingSession) then
+			error(`Arena {arenaId} could not place every player for match {id}`)
+		end
+		local startingCharacters: { [Player]: Model } = {}
+		for _, player in players do
+			startingCharacters[player] = player.Character :: Model
+		end
+		self._entranceSource:PlayForPlayers(players, arenaId, id, startsAt)
+		self:_startCountdown(startingSession, startingCharacters)
+		return true
+	end)
+	if initialized and result then
+		return true
+	end
+	if not initialized then
+		warn(`Match {id} could not start: {tostring(result)}`)
+	end
+	if session ~= nil then
+		local failedSession = session
+		local rolledBack, rollbackError = pcall(self._cancelStartingSession, self, failedSession)
+		if not rolledBack or self._sessions[id] == failedSession then
+			if not rolledBack then
+				warn(`Match {id} rollback failed: {tostring(rollbackError)}`)
+			end
+			local placement = self._placements[id]
+			if placement ~= nil then
+				pcall(placement.Restore, placement)
+				self._placements[id] = nil
+			end
+			self._sessions[id] = nil
+			for _, player in players do
+				if self._matchesByPlayer[player] == failedSession then
+					self._matchesByPlayer[player] = nil
+				end
+			end
+			self._arenaRegistry:Release(id)
+			failedSession:Destroy()
+		end
+	else
+		self._arenaRegistry:Release(id)
+	end
+	return false
 end
 
 function MatchCoordinator:_award(player: Player, didWin: boolean, matchId: string)
@@ -400,32 +440,7 @@ function MatchCoordinator:FinishForKnockout(loser: Player)
 	end
 end
 
-function MatchCoordinator:_abortStartingSession(session: MatchSession)
-	local result: MatchResult = {
-		WinnerUserId = nil,
-		LoserUserId = nil,
-		Reason = "Cancelled",
-		DurationSeconds = 0,
-	}
-
-	if not session:Cancel() then
-		return
-	end
-
-	for _, player in session.Players do
-		if player.Parent == Players then
-			self._emitMatchChanged(player, {
-				Id = session.Id,
-				State = "Complete",
-				Result = result,
-			})
-		end
-	end
-	self._onSessionClosed(table.clone(session.Players), result)
-	self:_cleanupSession(session)
-end
-
-function MatchCoordinator:_cancelStartingSession(session: MatchSession, departingPlayer: Player)
+function MatchCoordinator:_cancelStartingSession(session: MatchSession, departingPlayer: Player?)
 	local result: MatchResult = {
 		WinnerUserId = nil,
 		LoserUserId = nil,
@@ -440,16 +455,21 @@ function MatchCoordinator:_cancelStartingSession(session: MatchSession, departin
 	local remaining: { Player } = {}
 	for _, player in session.Players do
 		if player ~= departingPlayer and player.Parent == Players then
-			self._emitMatchChanged(player, {
+			self:_notifyMatchChanged(player, {
 				Id = session.Id,
 				State = "Complete",
 				Result = result,
 			})
-			table.insert(remaining, player)
+			if departingPlayer ~= nil then
+				table.insert(remaining, player)
+			end
 		end
 	end
 
-	self._onSessionClosed(table.clone(session.Players), result)
+	local closed, closeError = pcall(self._onSessionClosed, table.clone(session.Players), result)
+	if not closed then
+		warn(`Match close callback failed for match {session.Id}: {tostring(closeError)}`)
+	end
 	self:_cleanupSession(session)
 	for _, player in remaining do
 		self:JoinQueue(player)
@@ -512,18 +532,11 @@ function MatchCoordinator:_finishSession(
 	self._trove:AddPromise(cleanup)
 
 	for _, player in session.Players do
-		local notified, notificationError = pcall(self._emitMatchChanged, player, {
+		self:_notifyMatchChanged(player, {
 			Id = session.Id,
 			State = "Complete",
 			Result = result,
 		})
-		if not notified then
-			warn(
-				`Match completion notification failed for user {player.UserId}: {tostring(
-					notificationError
-				)}`
-			)
-		end
 	end
 	local closed, closeError = pcall(self._onSessionClosed, table.clone(session.Players), result)
 	if not closed then
