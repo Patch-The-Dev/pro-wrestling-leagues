@@ -106,6 +106,16 @@ rojo build default.project.json -o ProWrestlingLeagues.rbxlx
 
 The [source checks workflow](.github/workflows/ci.yml) verifies the package lock, formatting, lint, **all runtime Luau source**, and the game, unit, and multiplayer Rojo builds. Application coordinators and every service are included in analysis. Roblox definitions and Actions are pinned to checked versions.
 
+This repository uses automatic GitHub source checks and local Roblox Studio execution. Run the Studio suites before publishing changes to combat, match lifecycle, persistence, or networking, and retain the report for the tested source commit.
+
+| Verification | Execution and evidence |
+| --- | --- |
+| Source checks | GitHub Actions runs on `main` pushes and pull requests; results appear in the workflow history. |
+| Runtime suites | Run locally in Studio; [validation.json](docs/validation.json) records the tested commit, completion time, and suite results. |
+| Gameplay demonstration | [Play Pro Wrestling Leagues](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES) or view the [project page](https://www.patchthedev.com/work/pro-wrestling-leagues). |
+
+Studio runtime CI is optional. The default verification approach uses the local suites documented below. The recorded Studio results apply to their named source revision; each runtime change needs a fresh run.
+
 On Windows with Roblox Studio installed and signed in:
 
 ```powershell
@@ -126,7 +136,7 @@ The tests use isolated fixtures and mock data stores. They do not publish a plac
 
 The [recorded local Studio run](docs/validation.json) passed **85 unit checks**, the **server bootstrap**, and **17 multiplayer checks** from a clean source commit. The report identifies that commit and its completion time. The Studio workflow generates a fresh report for each automated run.
 
-The [Studio runtime workflow](.github/workflows/studio.yml) runs these same suites after successful source checks on trusted `main` pushes, once a dedicated Windows runner is enabled. It does not execute pull requests or forks on the signed-in machine. [Studio CI setup](docs/STUDIO_CI.md) covers installation and the opt-in repository variable. A skipped workflow is not a runtime pass.
+The optional [Studio runtime workflow](.github/workflows/studio.yml) can automate the same suites after successful source checks for trusted `main` pushes when a Windows runner is configured and enabled. It is currently disabled. A skipped job records no runtime execution; the local results above remain the recorded Studio evidence. See [verification policy and optional Studio CI setup](docs/STUDIO_CI.md).
 
 The source tree is the reviewable application layer; the [live Roblox game](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES) is the playable project. Studio-authored arenas, UI, animation, sound, and cosmetic assets connect through the documented runtime contract.
 
