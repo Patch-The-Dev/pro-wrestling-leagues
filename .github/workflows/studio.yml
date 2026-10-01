@@ -50,7 +50,7 @@ jobs:
 
       - name: Run unit, bootstrap, and multiplayer Studio suites
         shell: pwsh
-        run: ./tests/RunStudioTests.ps1 -ReportPath "$env:RUNNER_TEMP/pro-wrestling-leagues-runtime.json"
+        run: ./tests/RunStudioCI.ps1 -ReportPath "$env:RUNNER_TEMP/pro-wrestling-leagues-runtime.json"
 
       - name: Upload runtime results
         if: always()
