@@ -13,15 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Setup Rokit
-        uses: paradoxum-games/setup-rokit@v3
+      - name: Install pinned tools
+        uses: paradoxum-games/setup-rokit@29e6ee09651a3711e3a287a1037671d7b74db6d0 # v3
         with:
           version: 1.2.0
           cache: true
 
-      - name: Install packages
+      - name: Install packages and verify lockfile
         run: |
           wally install
           git diff --exit-code -- wally.lock
@@ -32,30 +32,16 @@ jobs:
       - name: Lint
         run: selene src tests
 
-      - name: Type check client, domain, persistence, and server boundaries
+      - name: Type check all runtime source
         run: |
           rojo sourcemap default.project.json --include-non-scripts -o sourcemap.json
           curl -fsSL https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/1.70.0/scripts/globalTypes.d.luau -o "$RUNNER_TEMP/robloxTypes.d.luau"
           echo "2b0df788dc3fd1b572e71ee7fe9e1c55cc23882afbd5024aecdec30d9bd7520f  $RUNNER_TEMP/robloxTypes.d.luau" | sha256sum --check
           luau-lsp analyze --platform roblox --sourcemap sourcemap.json \
-            --definitions "@roblox=$RUNNER_TEMP/robloxTypes.d.luau" \
-            src/client \
-            src/server/Adapters \
-            src/server/Components \
-            src/server/Domain \
-            src/server/Networking \
-            src/server/Persistence \
-            src/server/Services/CustomizationService.luau \
-            src/server/Services/DataService.luau \
-            src/server/Services/EconomyService.luau \
-            src/server/Services/EntranceService.luau \
-            src/server/Services/RequestGateService.luau \
-            src/server/Services/TurnbuckleService.luau \
-            src/server/Services/WeaponService.luau \
-            src/shared
+            --definitions "@roblox=$RUNNER_TEMP/robloxTypes.d.luau" src
 
-      - name: Build Rojo project
-        run: rojo build default.project.json -o ProWrestlingLeagues.rbxlx
-
-      - name: Build test place
-        run: rojo build test.project.json -o ProWrestlingLeaguesTests.rbxlx
+      - name: Build game, unit, and multiplayer projects
+        run: |
+          rojo build default.project.json -o ProWrestlingLeagues.rbxlx
+          rojo build test.project.json -o ProWrestlingLeaguesTests.rbxlx
+          rojo build integration.project.json -o ProWrestlingLeaguesIntegrationTests.rbxlx

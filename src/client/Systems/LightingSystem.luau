@@ -5,7 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local EntranceConfig = require(ReplicatedStorage.Shared.Config.EntranceConfig)
 local Promise = require(ReplicatedStorage.Packages.Promise)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 type LightingSnapshot = {
 	Brightness: number,
@@ -19,7 +19,7 @@ LightingSystem.__index = LightingSystem
 
 export type LightingSystem = typeof(setmetatable(
 	{} :: {
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_generation: number,
 		_baseline: LightingSnapshot?,
 	},
@@ -50,7 +50,7 @@ function LightingSystem.new(): LightingSystem
 	}, LightingSystem)
 end
 
-function LightingSystem:_restore()
+function LightingSystem._restore(self: LightingSystem)
 	local baseline = self._baseline
 	self._baseline = nil
 	if baseline ~= nil then
@@ -86,7 +86,7 @@ function LightingSystem.Stop(self: LightingSystem)
 	self:_restore()
 end
 
-function LightingSystem:Destroy()
+function LightingSystem.Destroy(self: LightingSystem)
 	self:Stop()
 	self._trove:Destroy()
 end

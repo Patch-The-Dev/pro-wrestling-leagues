@@ -1,12 +1,17 @@
 --!strict
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Contracts = require(ReplicatedStorage.Shared.Network.Contracts)
 local EconomyConfig = require(ReplicatedStorage.Shared.Config.EconomyConfig)
+local Journal = require(script.Parent.Parent.Persistence.MatchSettlementJournal)
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local MatchRewardLedger = require(script.Parent.Parent.Domain.Economy.MatchRewardLedger)
+local MatchConfig = require(ReplicatedStorage.Shared.Config.MatchConfig)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
+local RewardPolicy = require(script.Parent.Parent.Domain.Economy.RewardPolicy)
+local SettlementStore = require(script.Parent.Parent.Persistence.SettlementStore)
+local SettlementTypes = require(script.Parent.Parent.Persistence.SettlementTypes)
 
 type CurrencyName = PlayerDataTypes.CurrencyName
 
@@ -33,6 +38,69 @@ end
 function EconomyService:KnitStart()
 	self._dataService = Knit.GetService("DataService")
 	self._requestGate = Knit.GetService("RequestGateService")
+	self._journal = Journal.new(
+		SettlementStore.new(),
+		function(userId, opponentId, sequence, matchId, didWin, reward)
+			local saved = self._dataService:ApplySettlementAsync(
+				userId,
+				opponentId,
+				sequence,
+				matchId,
+				didWin,
+				reward
+			)
+			local player = Players:GetPlayerByUserId(userId)
+			if saved and player ~= nil then
+				local published, publishError = pcall(function()
+					self:_publishBalance(player)
+					return true
+				end)
+				if not published then
+					warn(`Match balance notification failed: {tostring(publishError)}`)
+				end
+			end
+			return saved
+		end,
+		function(winnerId, loserId)
+			local winner = Players:GetPlayerByUserId(winnerId)
+			local loser = Players:GetPlayerByUserId(loserId)
+			return (winner ~= nil and self._dataService:IsLoaded(winner))
+				or (loser ~= nil and self._dataService:IsLoaded(loser))
+		end
+	)
+	self._closing = false
+	game:BindToClose(function()
+		self._closing = true
+	end)
+	task.spawn(function()
+		while not self._closing do
+			self._journal:ScanPage()
+			task.wait(MatchConfig.SettlementScanSeconds)
+		end
+	end)
+end
+
+function EconomyService:RecordMatchResult(
+	winner: Player,
+	loser: Player,
+	matchId: string,
+	finishedAt: number
+): boolean
+	local result: SettlementTypes.Result = {
+		MatchId = matchId,
+		WinnerUserId = winner.UserId,
+		LoserUserId = loser.UserId,
+		FinishedAt = finishedAt,
+		WinReward = RewardPolicy.ForMatchOutcome(true),
+		LossReward = RewardPolicy.ForMatchOutcome(false),
+	}
+	if not self._journal:Record(result) then
+		return false
+	end
+	task.defer(function()
+		self._journal:Process(matchId)
+	end)
+	return true
 end
 
 function EconomyService:_publishBalance(player: Player)
@@ -47,31 +115,6 @@ function EconomyService:_publishBalance(player: Player)
 		Experience = data.Progression.Experience,
 		Fame = data.Progression.Fame,
 	})
-end
-
-function EconomyService:ApplyMatchReward(player: Player, didWin: boolean, matchId: string): boolean
-	local changed = false
-	local ok, updated = pcall(function()
-		return self._dataService:Update(player, function(data)
-			changed = MatchRewardLedger.Apply(data, matchId, didWin)
-		end)
-	end)
-	if not ok then
-		warn(`Match reward update failed for user {player.UserId}: {tostring(updated)}`)
-		return false
-	end
-
-	if updated and changed then
-		local published, publishError = pcall(function()
-			self:_publishBalance(player)
-		end)
-		if not published then
-			warn(
-				`Match balance notification failed for user {player.UserId}: {tostring(publishError)}`
-			)
-		end
-	end
-	return updated
 end
 
 function EconomyService:Purchase(player: Player, itemId: string): (boolean, string?)

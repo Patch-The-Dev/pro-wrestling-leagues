@@ -9,8 +9,9 @@ local PlayerDataSnapshot = require(ReplicatedStorage.Shared.Util.PlayerDataSnaps
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
 local PlayerDeparture = require(script.Parent.Parent.Persistence.PlayerDeparture)
 local PlayerRepository = require(script.Parent.Parent.Persistence.PlayerRepository)
+local SettlementTypes = require(script.Parent.Parent.Persistence.SettlementTypes)
 local Signal = require(ReplicatedStorage.Packages.Signal)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 type PlayerData = PlayerDataTypes.PlayerData
 
@@ -65,6 +66,7 @@ function DataService:_loadPlayer(player: Player)
 		end)
 		:catch(function(err)
 			self._pendingLoads:Finish(player)
+			self._departure:Release(player)
 			warn(`Failed to load player data for {player.UserId}: {tostring(err)}`)
 			if player.Parent == Players then
 				player:Kick("Your player data could not be loaded. Please reconnect.")
@@ -88,6 +90,7 @@ function DataService:KnitStart()
 
 	game:BindToClose(function()
 		self._closing = true
+		self._repository:BeginClose()
 		local deadline = os.clock() + SHUTDOWN_WAIT_SECONDS
 		self._departure:ReleaseAll(deadline, function()
 			return self._pendingLoads:HasPending()
@@ -109,6 +112,24 @@ end
 
 function DataService:Update(player: Player, mutator: (data: PlayerData) -> ()): boolean
 	return self._repository:Update(player, mutator)
+end
+
+function DataService:ApplySettlementAsync(
+	userId: number,
+	opponentId: number,
+	sequence: number,
+	matchId: string,
+	didWin: boolean,
+	reward: SettlementTypes.Reward
+): boolean
+	return self._repository:ApplySettlementAsync(
+		userId,
+		opponentId,
+		sequence,
+		matchId,
+		didWin,
+		reward
+	)
 end
 
 function DataService:GetSnapshot(player: Player): PlayerData?

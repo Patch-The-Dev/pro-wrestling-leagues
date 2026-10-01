@@ -55,7 +55,7 @@ function WeaponComponent.new(tool: Tool, networkId: string): WeaponComponent
 		boundedNumber(initialDurability, resolvedMaxDurability, 0, resolvedMaxDurability)
 	)
 
-	local self = setmetatable({
+	local self: WeaponComponent = setmetatable({
 		Instance = tool,
 		NetworkId = networkId,
 		DefinitionId = if type(definitionId) == "string" and definitionId ~= ""
@@ -83,7 +83,7 @@ function WeaponComponent.new(tool: Tool, networkId: string): WeaponComponent
 	return self
 end
 
-function WeaponComponent:_replicate()
+function WeaponComponent._replicate(self: WeaponComponent)
 	self.Instance:SetAttribute("WeaponId", self.DefinitionId)
 	self.Instance:SetAttribute("WeaponNetworkId", self.NetworkId)
 	self.Instance:SetAttribute("Durability", self.Durability)
@@ -106,7 +106,7 @@ function WeaponComponent.IsEquippedBy(self: WeaponComponent, player: Player): bo
 	return player.Character ~= nil and self.Instance.Parent == player.Character
 end
 
-function WeaponComponent:GetOwner(): Player?
+function WeaponComponent.GetOwner(self: WeaponComponent): Player?
 	for _, player in Players:GetPlayers() do
 		if self:IsOwnedBy(player) then
 			return player
@@ -115,21 +115,21 @@ function WeaponComponent:GetOwner(): Player?
 	return nil
 end
 
-function WeaponComponent:GetWorldParent(): Instance?
+function WeaponComponent.GetWorldParent(self: WeaponComponent): Instance?
 	return self._worldParent
 end
 
-function WeaponComponent:IsAvailableForPickup(): boolean
+function WeaponComponent.IsAvailableForPickup(self: WeaponComponent): boolean
 	return self.Durability > 0
 		and self.Instance:IsDescendantOf(workspace)
 		and self:GetOwner() == nil
 end
 
-function WeaponComponent:CanUse(): boolean
+function WeaponComponent.CanUse(self: WeaponComponent): boolean
 	return self.Durability > 0 and os.clock() - self._lastUsedAt >= self.UseCooldown
 end
 
-function WeaponComponent:Pickup(player: Player): boolean
+function WeaponComponent.Pickup(self: WeaponComponent, player: Player): boolean
 	if not self:IsAvailableForPickup() then
 		return false
 	end
@@ -143,7 +143,7 @@ function WeaponComponent:Pickup(player: Player): boolean
 	return true
 end
 
-function WeaponComponent:Drop(player: Player): boolean
+function WeaponComponent.Drop(self: WeaponComponent, player: Player): boolean
 	if not self:IsOwnedBy(player) then
 		return false
 	end
@@ -219,7 +219,7 @@ function WeaponComponent.Reset(self: WeaponComponent)
 	self:_replicate()
 end
 
-function WeaponComponent:GetDamageSpec(): DamageSpec
+function WeaponComponent.GetDamageSpec(self: WeaponComponent): DamageSpec
 	return {
 		HealthDamage = self.Damage,
 		PoiseDamage = self.PoiseDamage,
@@ -229,7 +229,7 @@ function WeaponComponent:GetDamageSpec(): DamageSpec
 	}
 end
 
-function WeaponComponent:Destroy()
+function WeaponComponent.Destroy(_self: WeaponComponent)
 	-- The Tool owns its Instances. The registry owns only this component object.
 end
 

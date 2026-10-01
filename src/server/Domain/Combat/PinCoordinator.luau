@@ -8,7 +8,7 @@ local CombatantModule = require(script.Parent.Combatant)
 local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 local PinSessionModule = require(script.Parent.PinSession)
 local RecoverySchedulerModule = require(script.Parent.RecoveryScheduler)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 type Combatant = CombatantModule.Combatant
 type PinSession = PinSessionModule.PinSession
@@ -25,7 +25,7 @@ PinCoordinator.__index = PinCoordinator
 
 export type PinCoordinator = typeof(setmetatable(
 	{} :: {
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_sessions: { [string]: PinSession },
 		_getCombatant: GetCombatant,
 		_recovery: RecoveryScheduler,
@@ -111,7 +111,7 @@ function PinCoordinator._schedulePrompt(self: PinCoordinator, id: string, sessio
 	self._trove:AddPromise(expiry)
 end
 
-function PinCoordinator:Start(pinner: Player, victim: Player): boolean
+function PinCoordinator.Start(self: PinCoordinator, pinner: Player, victim: Player): boolean
 	local id = HttpService:GenerateGUID(false)
 	local pingSucceeded, roundTripSeconds = pcall(function()
 		return victim:GetNetworkPing()
@@ -132,8 +132,12 @@ function PinCoordinator:Start(pinner: Player, victim: Player): boolean
 	return true
 end
 
-function PinCoordinator:SubmitInput(player: Player, sessionId: string): boolean
-	local session = self._sessions[sessionId]
+function PinCoordinator.SubmitInput(
+	self: PinCoordinator,
+	player: Player,
+	sessionId: string
+): boolean
+	local session: PinSession? = self._sessions[sessionId]
 	if session == nil or not session:SubmitInput(player) then
 		return false
 	end
@@ -142,7 +146,7 @@ function PinCoordinator:SubmitInput(player: Player, sessionId: string): boolean
 	return true
 end
 
-function PinCoordinator:CancelForPlayer(player: Player)
+function PinCoordinator.CancelForPlayer(self: PinCoordinator, player: Player)
 	for id, session in self._sessions do
 		if session.Pinner == player or session.Victim == player then
 			self._sessions[id] = nil
@@ -163,7 +167,7 @@ function PinCoordinator:CancelForPlayer(player: Player)
 	end
 end
 
-function PinCoordinator:Destroy()
+function PinCoordinator.Destroy(self: PinCoordinator)
 	for id, session in self._sessions do
 		self._sessions[id] = nil
 		session:Destroy()

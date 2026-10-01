@@ -1,0 +1,47 @@
+{
+  "name": "ProWrestlingLeaguesIntegrationTests",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Packages": {
+        "$path": "Packages"
+      },
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "ServerPackages": {
+        "$path": "ServerPackages"
+      },
+      "Server": {
+        "$path": "src/server",
+        "$properties": {
+          "Enabled": false
+        }
+      },
+      "IntegrationTests": {
+        "$className": "Folder",
+        "Runner": {
+          "$path": "tests/Integration.server.luau"
+        }
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/client",
+          "$properties": {
+            "Enabled": false
+          }
+        },
+        "IntegrationTests": {
+          "$path": "tests/Integration.client.luau"
+        }
+      }
+    }
+  }
+}

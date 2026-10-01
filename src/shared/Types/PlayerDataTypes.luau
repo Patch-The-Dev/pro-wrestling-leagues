@@ -54,6 +54,7 @@ export type Unlocks = {
 }
 
 export type PlayerData = {
+	MatchRewardSequences: { [string]: number }?,
 	SchemaVersion: number,
 	Currencies: {
 		Cash: number,

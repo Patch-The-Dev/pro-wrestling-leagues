@@ -5,7 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local Contracts = require(ReplicatedStorage.Shared.Network.Contracts)
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 local CombatCoordinatorModule = require(script.Parent.Parent.Application.CombatCoordinator)
 

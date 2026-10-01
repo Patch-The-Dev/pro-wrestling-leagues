@@ -5,7 +5,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CustomizationConfig = require(ReplicatedStorage.Shared.Config.CustomizationConfig)
 
 local ProfileTemplate = {
-	SchemaVersion = 4,
+	SchemaVersion = 5,
+	MatchRewardSequences = {},
 	Currencies = {
 		Cash = 0,
 		Tickets = 0,

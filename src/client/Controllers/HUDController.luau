@@ -4,7 +4,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Knit = require(script.Parent.Parent.KnitClient)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 local UIResolver = require(script.Parent.Parent.UI.UIResolver)
 
 local HUDController = Knit.CreateController({

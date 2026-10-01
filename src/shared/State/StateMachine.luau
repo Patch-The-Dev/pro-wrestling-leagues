@@ -29,11 +29,11 @@ function StateMachine.new(
 	}, StateMachine)
 end
 
-function StateMachine:Get(): string
+function StateMachine.Get(self: StateMachine): string
 	return self._state
 end
 
-function StateMachine:CanTransition(nextState: string): boolean
+function StateMachine.CanTransition(self: StateMachine, nextState: string): boolean
 	if nextState == self._state then
 		return true
 	end
@@ -42,7 +42,7 @@ function StateMachine:CanTransition(nextState: string): boolean
 	return fromState ~= nil and fromState[nextState] == true
 end
 
-function StateMachine:Transition(nextState: string): boolean
+function StateMachine.Transition(self: StateMachine, nextState: string): boolean
 	if not self:CanTransition(nextState) then
 		return false
 	end
@@ -56,7 +56,7 @@ function StateMachine:Transition(nextState: string): boolean
 	return true
 end
 
-function StateMachine:Destroy()
+function StateMachine.Destroy(self: StateMachine)
 	self.Changed:Destroy()
 end
 

@@ -61,7 +61,7 @@ function AnimationSystem.new(): AnimationSystem
 	}, AnimationSystem)
 end
 
-function AnimationSystem:_forgetAnimator(animator: Animator)
+function AnimationSystem._forgetAnimator(self: AnimationSystem, animator: Animator)
 	local entry = self._trackCache[animator]
 	if entry == nil then
 		return
@@ -74,7 +74,11 @@ function AnimationSystem:_forgetAnimator(animator: Animator)
 	end
 end
 
-function AnimationSystem:_trackFor(animator: Animator, animation: Animation): AnimationTrack
+function AnimationSystem._trackFor(
+	self: AnimationSystem,
+	animator: Animator,
+	animation: Animation
+): AnimationTrack
 	local entry = self._trackCache[animator]
 	if entry == nil then
 		entry = {
@@ -90,15 +94,16 @@ function AnimationSystem:_trackFor(animator: Animator, animation: Animation): An
 		}
 		self._trackCache[animator] = entry
 	end
-	local track = entry.Tracks[animation]
+	local track: AnimationTrack? = entry.Tracks[animation]
 	if track == nil then
-		track = animator:LoadAnimation(animation)
-		entry.Tracks[animation] = track
+		local created = animator:LoadAnimation(animation)
+		entry.Tracks[animation] = created
+		return created
 	end
 	return track
 end
 
-function AnimationSystem:_playForUser(userId: number, animation: Animation?)
+function AnimationSystem._playForUser(self: AnimationSystem, userId: number, animation: Animation?)
 	if animation == nil then
 		return
 	end
@@ -118,7 +123,7 @@ function AnimationSystem:_playForUser(userId: number, animation: Animation?)
 	track:Play(0.1)
 end
 
-function AnimationSystem:PlayResolvedAction(event: ResolvedAction)
+function AnimationSystem.PlayResolvedAction(self: AnimationSystem, event: ResolvedAction)
 	local key = resolveKey(event)
 	self:_playForUser(event.AttackerUserId, resolveAnimation(key, "Attacker"))
 	if event.TargetUserId ~= nil then
@@ -126,17 +131,17 @@ function AnimationSystem:PlayResolvedAction(event: ResolvedAction)
 	end
 end
 
-function AnimationSystem:PlayStartedAction(event: ResolvedAction)
+function AnimationSystem.PlayStartedAction(self: AnimationSystem, event: ResolvedAction)
 	self:_playForUser(event.AttackerUserId, resolveAnimation(resolveKey(event), "Attacker"))
 end
 
-function AnimationSystem:PlayStrikeImpact(event: ResolvedAction)
+function AnimationSystem.PlayStrikeImpact(self: AnimationSystem, event: ResolvedAction)
 	if event.TargetUserId ~= nil then
 		self:_playForUser(event.TargetUserId, resolveAnimation(resolveKey(event), "Victim"))
 	end
 end
 
-function AnimationSystem:Destroy()
+function AnimationSystem.Destroy(self: AnimationSystem)
 	for animator in self._trackCache do
 		self:_forgetAnimator(animator)
 	end

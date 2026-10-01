@@ -12,6 +12,8 @@ local MatchConfig = {
 		+ 0.5,
 	PostMatchSeconds = 6,
 	SettlementWaitSeconds = 25,
+	SettlementPageSize = 10,
+	SettlementScanSeconds = 15,
 	VoteToEndFraction = 1,
 	DefaultArenaId = "TrainingRing",
 	MinimumRewardDurationSeconds = 30,

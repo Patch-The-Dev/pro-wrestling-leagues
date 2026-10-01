@@ -18,6 +18,8 @@
       "$className": "ServerScriptService",
       "Server": {
         "$className": "Folder",
+        "Config": { "$path": "src/server/Config" },
+        "Networking": { "$path": "src/server/Networking" },
         "Application": {
           "$path": "src/server/Application"
         },

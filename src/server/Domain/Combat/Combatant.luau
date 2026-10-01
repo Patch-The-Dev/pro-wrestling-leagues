@@ -6,7 +6,7 @@ local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local CombatMovementModule = require(script.Parent.CombatMovement)
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local StateMachine = require(ReplicatedStorage.Shared.State.StateMachine)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 type CombatState = CombatTypes.CombatState
 type CombatSnapshot = CombatTypes.CombatSnapshot
@@ -21,7 +21,7 @@ export type Combatant = typeof(setmetatable(
 		Player: Player,
 		Character: Model,
 		Humanoid: Humanoid,
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_stateMachine: StateMachine.StateMachine,
 		_movement: CombatMovement,
 		_health: number,
@@ -105,7 +105,7 @@ function Combatant.new(player: Player, character: Model): Combatant
 	local stateMachine = StateMachine.new("Roaming", ALLOWED_TRANSITIONS)
 	local movement = CombatMovementModule.new(character, humanoid)
 
-	local self = setmetatable({
+	local self: Combatant = setmetatable({
 		Player = player,
 		Character = character,
 		Humanoid = humanoid,

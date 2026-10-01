@@ -15,9 +15,9 @@ return function()
 				Wrestler = { Name = "Legacy Wrestler" },
 				Attack1 = "Left Punch",
 			} :: any
-			expect(ProfileMigrations.Apply(data)).to.equal(4)
+			expect(ProfileMigrations.Apply(data)).to.equal(5)
 			ProfileSanitizer.Apply(data)
-			expect(data.SchemaVersion).to.equal(4)
+			expect(data.SchemaVersion).to.equal(5)
 			expect(data.Progression.Experience).to.equal(25)
 			expect(data.Progression.Fame).to.equal(5)
 			expect(data.Wrestler.DisplayName).to.equal("Legacy Wrestler")
@@ -53,7 +53,7 @@ return function()
 
 		it("migrates existing profiles to the reward ledger", function()
 			local data = { SchemaVersion = 3, Statistics = { Wins = 2, Losses = 1 } } :: any
-			expect(ProfileMigrations.Apply(data)).to.equal(4)
+			expect(ProfileMigrations.Apply(data)).to.equal(5)
 			expect(data.Statistics.Wins).to.equal(2)
 			expect(#data.Statistics.RecentMatchIds).to.equal(0)
 		end)

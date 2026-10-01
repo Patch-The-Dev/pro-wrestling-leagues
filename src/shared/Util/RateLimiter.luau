@@ -25,7 +25,7 @@ function RateLimiter.new(capacity: number, refillPerSecond: number): RateLimiter
 	}, RateLimiter)
 end
 
-function RateLimiter:Allow(userId: number, cost: number?): boolean
+function RateLimiter.Allow(self: RateLimiter, userId: number, cost: number?): boolean
 	local requestedCost = cost or 1
 	if requestedCost <= 0 then
 		return false
@@ -47,7 +47,7 @@ function RateLimiter:Allow(userId: number, cost: number?): boolean
 	return true
 end
 
-function RateLimiter:Forget(userId: number)
+function RateLimiter.Forget(self: RateLimiter, userId: number)
 	self.tokens[userId] = nil
 	self.updatedAt[userId] = nil
 end

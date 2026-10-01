@@ -100,6 +100,21 @@ end
 
 function ProfileSanitizer.Apply(data: Dictionary)
 	data.SchemaVersion = ProfileTemplate.SchemaVersion
+	local sequences = ensureDictionary(data, "MatchRewardSequences")
+	for key, value in sequences do
+		if
+			type(key) ~= "string"
+			or string.match(key, "^-?%d+$") == nil
+			or tonumber(key) == 0
+			or type(value) ~= "number"
+			or value < 1
+			or value ~= value
+			or value > MAX_SAFE_INTEGER
+			or value % 1 ~= 0
+		then
+			sequences[key] = nil
+		end
+	end
 
 	local currencies = ensureDictionary(data, "Currencies")
 	currencies.Cash = finiteNonNegative(currencies.Cash, ProfileTemplate.Currencies.Cash, true)

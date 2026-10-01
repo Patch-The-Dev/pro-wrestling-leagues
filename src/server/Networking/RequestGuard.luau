@@ -28,11 +28,11 @@ function RequestGuard.new(): RequestGuard
 	}, RequestGuard)
 end
 
-function RequestGuard:Allow(player: Player, channel: Channel): boolean
+function RequestGuard.Allow(self: RequestGuard, player: Player, channel: Channel): boolean
 	return self._limiters[channel]:Allow(player.UserId)
 end
 
-function RequestGuard:Forget(player: Player)
+function RequestGuard.Forget(self: RequestGuard, player: Player)
 	for _, limiter in self._limiters do
 		limiter:Forget(player.UserId)
 	end

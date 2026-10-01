@@ -3,7 +3,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 type CombatState = CombatTypes.CombatState
 type MovementBaseline = {
@@ -34,7 +34,7 @@ export type CombatMovement = typeof(setmetatable(
 	{} :: {
 		_character: Model,
 		_humanoid: Humanoid,
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_locked: boolean,
 		_baseline: MovementBaseline?,
 		_ownedRoot: BasePart?,
@@ -43,7 +43,7 @@ export type CombatMovement = typeof(setmetatable(
 ))
 
 function CombatMovement.new(character: Model, humanoid: Humanoid): CombatMovement
-	local self = setmetatable({
+	local self: CombatMovement = setmetatable({
 		_character = character,
 		_humanoid = humanoid,
 		_trove = Trove.new(),

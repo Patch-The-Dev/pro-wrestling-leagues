@@ -41,7 +41,7 @@ function MatchPlacement.new(players: { Player }, spawns: { CFrame }): MatchPlace
 	return setmetatable({ _entries = entries, _spawns = table.clone(spawns) }, MatchPlacement)
 end
 
-function MatchPlacement:Restore()
+function MatchPlacement.Restore(self: MatchPlacement)
 	for _, entry in self._entries do
 		if entry.Player.Character == entry.Character then
 			CharacterAdapter.PlaceAt(entry.Character, entry.ReturnCFrame)
@@ -49,7 +49,7 @@ function MatchPlacement:Restore()
 	end
 end
 
-function MatchPlacement:Place(): boolean
+function MatchPlacement.Place(self: MatchPlacement): boolean
 	for index, entry in self._entries do
 		if
 			entry.Player.Character ~= entry.Character

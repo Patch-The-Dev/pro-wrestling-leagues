@@ -6,7 +6,7 @@ local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local CombatantModule = require(script.Parent.Combatant)
 local Promise = require(ReplicatedStorage.Packages.Promise)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 type CombatState = CombatTypes.CombatState
 type Combatant = CombatantModule.Combatant
@@ -18,7 +18,7 @@ RecoveryScheduler.__index = RecoveryScheduler
 
 export type RecoveryScheduler = typeof(setmetatable(
 	{} :: {
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_getCombatant: GetCombatant,
 		_generations: { [Combatant]: number },
 	},

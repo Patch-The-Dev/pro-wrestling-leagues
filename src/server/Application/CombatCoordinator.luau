@@ -9,7 +9,7 @@ local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local MatchTypes = require(ReplicatedStorage.Shared.Types.MatchTypes)
 local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 local ActionBudgetModule = require(script.Parent.Parent.Domain.Combat.ActionBudget)
 local CharacterAdapter = require(script.Parent.Parent.Adapters.CharacterAdapter)
@@ -92,7 +92,7 @@ end
 
 export type CombatCoordinator = typeof(setmetatable(
 	{} :: {
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_dataSource: DataSource,
 		_matchSource: MatchSource,
 		_emitAction: EmitAction,
@@ -117,7 +117,7 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 	local budget = ActionBudgetModule.new()
 	local movement = MovementHistoryModule.new()
 	local function isPlausibleCharacter(player: Player): boolean
-		local combatant = combatants[player]
+		local combatant: Combatant? = combatants[player]
 		if combatant == nil or player.Character ~= combatant.Character then
 			return false
 		end
@@ -192,7 +192,7 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 		end,
 	})
 
-	local self = setmetatable({
+	local self: CombatCoordinator = setmetatable({
 		_trove = trove,
 		_dataSource = dependencies.DataSource,
 		_matchSource = dependencies.MatchSource,
@@ -210,12 +210,24 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 		_stepElapsed = 0,
 	}, CombatCoordinator)
 
-	trove:Add(budget)
-	trove:Add(movement)
-	trove:Add(recovery)
-	trove:Add(grapples)
-	trove:Add(pins)
-	trove:Add(strikes)
+	trove:Add(function()
+		budget:Destroy()
+	end)
+	trove:Add(function()
+		movement:Destroy()
+	end)
+	trove:Add(function()
+		recovery:Destroy()
+	end)
+	trove:Add(function()
+		grapples:Destroy()
+	end)
+	trove:Add(function()
+		pins:Destroy()
+	end)
+	trove:Add(function()
+		strikes:Destroy()
+	end)
 
 	local function bindPlayer(player: Player)
 		trove:Connect(player.CharacterAdded, function(character)
@@ -241,7 +253,7 @@ function CombatCoordinator.new(dependencies: Dependencies): CombatCoordinator
 	return self
 end
 
-function CombatCoordinator:_bindCharacter(player: Player, character: Model)
+function CombatCoordinator._bindCharacter(self: CombatCoordinator, player: Player, character: Model)
 	local generation = (self._characterGeneration[player] or 0) + 1
 	self._characterGeneration[player] = generation
 	self._movement:Forget(player)
@@ -264,8 +276,8 @@ function CombatCoordinator:_bindCharacter(player: Player, character: Model)
 	self._reportedDeaths[player] = false
 end
 
-function CombatCoordinator:_removeCombatant(player: Player)
-	local combatant = self._combatants[player]
+function CombatCoordinator._removeCombatant(self: CombatCoordinator, player: Player)
+	local combatant: Combatant? = self._combatants[player]
 	if combatant ~= nil then
 		self._recovery:Forget(combatant)
 		combatant:Destroy()
@@ -273,7 +285,7 @@ function CombatCoordinator:_removeCombatant(player: Player)
 	end
 end
 
-function CombatCoordinator:_removePlayer(player: Player)
+function CombatCoordinator._removePlayer(self: CombatCoordinator, player: Player)
 	self._characterGeneration[player] = nil
 	self._movement:Forget(player)
 	self._grapples:CancelForPlayer(player)
@@ -283,8 +295,8 @@ function CombatCoordinator:_removePlayer(player: Player)
 	self._reportedDeaths[player] = nil
 end
 
-function CombatCoordinator:SeedMovement(player: Player)
-	local combatant = self._combatants[player]
+function CombatCoordinator.SeedMovement(self: CombatCoordinator, player: Player)
+	local combatant: Combatant? = self._combatants[player]
 	if combatant == nil or player.Character ~= combatant.Character then
 		return
 	end
@@ -294,7 +306,7 @@ function CombatCoordinator:SeedMovement(player: Player)
 	end
 end
 
-function CombatCoordinator:_step(deltaTime: number)
+function CombatCoordinator._step(self: CombatCoordinator, deltaTime: number)
 	self._stepElapsed += deltaTime
 	if self._stepElapsed < CombatConfig.Movement.SampleIntervalSeconds then
 		return
@@ -324,7 +336,11 @@ function CombatCoordinator:_step(deltaTime: number)
 	end
 end
 
-function CombatCoordinator:_findTarget(player: Player, range: number): Player?
+function CombatCoordinator._findTarget(
+	self: CombatCoordinator,
+	player: Player,
+	range: number
+): Player?
 	return Targeting.FindNearestOpponent(
 		player,
 		self._matchSource:GetOpponents(player),
@@ -334,7 +350,8 @@ function CombatCoordinator:_findTarget(player: Player, range: number): Player?
 	)
 end
 
-function CombatCoordinator:_validateBase(
+function CombatCoordinator._validateBase(
+	self: CombatCoordinator,
 	player: Player,
 	action: CombatAction
 ): (Combatant?, string?)
@@ -342,7 +359,7 @@ function CombatCoordinator:_validateBase(
 		return nil, "No active match"
 	end
 
-	local combatant = self._combatants[player]
+	local combatant: Combatant? = self._combatants[player]
 	if combatant == nil then
 		return nil, "Character is unavailable"
 	end
@@ -358,7 +375,7 @@ function CombatCoordinator:_validateBase(
 	return combatant, nil
 end
 
-function CombatCoordinator:_isCharacterRunning(player: Player): boolean
+function CombatCoordinator._isCharacterRunning(self: CombatCoordinator, player: Player): boolean
 	local character = player.Character
 	local root = if character ~= nil then character:FindFirstChild("HumanoidRootPart") else nil
 	if root == nil or not root:IsA("BasePart") then
@@ -372,21 +389,25 @@ function CombatCoordinator:_isCharacterRunning(player: Player): boolean
 	)
 end
 
-function CombatCoordinator:GetState(player: Player): CombatState?
-	local combatant = self._combatants[player]
+function CombatCoordinator.GetState(self: CombatCoordinator, player: Player): CombatState?
+	local combatant: Combatant? = self._combatants[player]
 	return if combatant ~= nil then combatant:GetState() else nil
 end
 
-function CombatCoordinator:IsMovementPlausible(player: Player): boolean
+function CombatCoordinator.IsMovementPlausible(self: CombatCoordinator, player: Player): boolean
 	return self._matchSource:IsMatchActiveFor(player) and self._isPlausibleCharacter(player)
 end
 
-function CombatCoordinator:EnterTurnbuckle(player: Player, turnbuckle: BasePart): boolean
+function CombatCoordinator.EnterTurnbuckle(
+	self: CombatCoordinator,
+	player: Player,
+	turnbuckle: BasePart
+): boolean
 	if not self._matchSource:IsMatchActiveFor(player) then
 		return false
 	end
 
-	local combatant = self._combatants[player]
+	local combatant: Combatant? = self._combatants[player]
 	if
 		combatant == nil
 		or not self._isPlausibleCharacter(player)
@@ -407,8 +428,8 @@ function CombatCoordinator:EnterTurnbuckle(player: Player, turnbuckle: BasePart)
 	return true
 end
 
-function CombatCoordinator:LeaveTurnbuckle(player: Player)
-	local combatant = self._combatants[player]
+function CombatCoordinator.LeaveTurnbuckle(self: CombatCoordinator, player: Player)
+	local combatant: Combatant? = self._combatants[player]
 	if combatant == nil then
 		return
 	end
@@ -419,7 +440,11 @@ function CombatCoordinator:LeaveTurnbuckle(player: Player)
 	end
 end
 
-function CombatCoordinator:_requestStrike(player: Player, action: CombatAction): (boolean, string?)
+function CombatCoordinator._requestStrike(
+	self: CombatCoordinator,
+	player: Player,
+	action: CombatAction
+): (boolean, string?)
 	if action == "RunningAttack" and not self:_isCharacterRunning(player) then
 		return false, "Running attack requires server-observed movement"
 	end
@@ -432,7 +457,8 @@ function CombatCoordinator:_requestStrike(player: Player, action: CombatAction):
 	return self._strikes:Request(player, action, combatant)
 end
 
-function CombatCoordinator:RequestGrapple(
+function CombatCoordinator.RequestGrapple(
+	self: CombatCoordinator,
 	player: Player,
 	direction: GrappleDirection,
 	running: boolean
@@ -488,7 +514,15 @@ function CombatCoordinator:RequestGrapple(
 	victim:SetState("Stunned")
 
 	if
-		not self._grapples:Start(player, targetPlayer, action, moveId, damage, duration, isFinisher)
+		not self._grapples:Start(
+			player,
+			targetPlayer,
+			action :: "Grapple" | "RunningGrapple",
+			moveId,
+			damage,
+			duration,
+			isFinisher
+		)
 	then
 		attacker:SetState("Roaming")
 		victim:SetState("Roaming")
@@ -502,7 +536,7 @@ function CombatCoordinator:RequestGrapple(
 	return true, nil
 end
 
-function CombatCoordinator:RequestPin(player: Player): (boolean, string?)
+function CombatCoordinator.RequestPin(self: CombatCoordinator, player: Player): (boolean, string?)
 	local pinner, reason = self:_validateBase(player, "Pin")
 	if pinner == nil then
 		return false, reason
@@ -529,7 +563,11 @@ function CombatCoordinator:RequestPin(player: Player): (boolean, string?)
 	return true, nil
 end
 
-function CombatCoordinator:RequestAction(player: Player, action: CombatAction): (boolean, string?)
+function CombatCoordinator.RequestAction(
+	self: CombatCoordinator,
+	player: Player,
+	action: CombatAction
+): (boolean, string?)
 	if action == "Grapple" or action == "RunningGrapple" then
 		return false, "Grapples require a direction"
 	elseif action == "Pin" then
@@ -561,15 +599,24 @@ function CombatCoordinator:RequestAction(player: Player, action: CombatAction): 
 	return self:_requestStrike(player, action)
 end
 
-function CombatCoordinator:TryReverse(player: Player, sessionId: string): boolean
+function CombatCoordinator.TryReverse(
+	self: CombatCoordinator,
+	player: Player,
+	sessionId: string
+): boolean
 	return self._grapples:TryReverse(player, sessionId)
 end
 
-function CombatCoordinator:SubmitPinInput(player: Player, sessionId: string): boolean
+function CombatCoordinator.SubmitPinInput(
+	self: CombatCoordinator,
+	player: Player,
+	sessionId: string
+): boolean
 	return self._pins:SubmitInput(player, sessionId)
 end
 
-function CombatCoordinator:ApplyWeaponAttack(
+function CombatCoordinator.ApplyWeaponAttack(
+	self: CombatCoordinator,
 	player: Player,
 	damage: DamageSpec,
 	weaponId: string
@@ -581,7 +628,7 @@ function CombatCoordinator:ApplyWeaponAttack(
 		return false
 	end
 
-	local attacker = self._combatants[player]
+	local attacker: Combatant? = self._combatants[player]
 	if attacker == nil then
 		return false
 	end
@@ -593,14 +640,14 @@ function CombatCoordinator:ApplyWeaponAttack(
 	return self._strikes:ApplyWeaponAttack(player, attacker, damage, weaponId)
 end
 
-function CombatCoordinator:ResetForMatchEnd(players: { Player })
+function CombatCoordinator.ResetForMatchEnd(self: CombatCoordinator, players: { Player })
 	for _, player in players do
 		self._grapples:CancelForPlayer(player)
 		self._pins:CancelForPlayer(player)
 		self._budget:Forget(player)
 		self._movement:Forget(player)
 
-		local combatant = self._combatants[player]
+		local combatant: Combatant? = self._combatants[player]
 		if combatant ~= nil then
 			self._recovery:Invalidate(combatant)
 			combatant:ResetForMatchEnd()
@@ -609,7 +656,7 @@ function CombatCoordinator:ResetForMatchEnd(players: { Player })
 	end
 end
 
-function CombatCoordinator:Destroy()
+function CombatCoordinator.Destroy(self: CombatCoordinator)
 	for player in self._combatants do
 		self:_removeCombatant(player)
 	end

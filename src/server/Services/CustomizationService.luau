@@ -9,7 +9,7 @@ local CustomizationConfig = require(ReplicatedStorage.Shared.Config.Customizatio
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local MovesConfig = require(ReplicatedStorage.Shared.Config.MovesConfig)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 type AppearanceAssetField = PlayerDataTypes.AppearanceAssetField
 type MoveLoadout = PlayerDataTypes.MoveLoadout

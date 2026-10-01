@@ -31,8 +31,9 @@ return function()
 					end,
 				},
 				EconomySource = {
-					ApplyMatchReward = function(_, player, didWin)
-						table.insert(awards, { player.UserId, didWin })
+					RecordMatchResult = function(_, winner, loser)
+						table.insert(awards, { winner.UserId, true })
+						table.insert(awards, { loser.UserId, false })
 						return true
 					end,
 				},
@@ -65,7 +66,7 @@ return function()
 			coordinator:Destroy()
 		end)
 
-		it("awards an eligible match once per opponent cooldown", function()
+		it("records each eligible match for durable settlement", function()
 			local coordinator, awards = createCoordinator()
 			local firstMatch = activeSession("first", 31)
 			coordinator._sessions[firstMatch.Id] = firstMatch
@@ -84,7 +85,7 @@ return function()
 				local settlement = coordinator._settlementsByPlayer[first]
 				return settlement ~= nil and settlement.Complete
 			end)
-			expect(#awards).to.equal(2)
+			expect(#awards).to.equal(4)
 			coordinator:Destroy()
 		end)
 
@@ -185,7 +186,7 @@ return function()
 						end,
 					},
 					EconomySource = {
-						ApplyMatchReward = function()
+						RecordMatchResult = function()
 							return true
 						end,
 					},
@@ -281,13 +282,18 @@ return function()
 			mutableCoordinator.GetOpponents = function()
 				return { first }
 			end
-			mutableCoordinator._rewardCooldown = {
-				TryClaim = function()
-					claimStarted:Fire()
-					claimGate:await()
-					return true
-				end,
-			}
+			local recordResult = mutableCoordinator._economySource.RecordMatchResult
+			mutableCoordinator._economySource.RecordMatchResult = function(
+				source,
+				winner,
+				loser,
+				matchId,
+				finishedAt
+			)
+				claimStarted:Fire()
+				claimGate:await()
+				return recordResult(source, winner, loser, matchId, finishedAt)
+			end
 			task.defer(function()
 				departures:Release(second)
 				firstDepartureFinished = true
@@ -335,13 +341,18 @@ return function()
 				resumeClaim = resolve
 			end)
 			local mutableCoordinator = coordinator :: any
-			mutableCoordinator._rewardCooldown = {
-				TryClaim = function()
-					claimStarted = true
-					claimGate:await()
-					return true
-				end,
-			}
+			local recordResult = mutableCoordinator._economySource.RecordMatchResult
+			mutableCoordinator._economySource.RecordMatchResult = function(
+				source,
+				winner,
+				loser,
+				matchId,
+				finishedAt
+			)
+				claimStarted = true
+				claimGate:await()
+				return recordResult(source, winner, loser, matchId, finishedAt)
+			end
 			expect(coordinator:_finishSession(session, first, second, "Pin")).to.equal(true)
 			expect(updates[1][2].State).to.equal("Complete")
 			waitUntil(function()

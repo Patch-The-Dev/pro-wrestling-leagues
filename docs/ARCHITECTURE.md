@@ -40,15 +40,19 @@ Damage reactions are valid from each interruptible combat state. A poise break c
 
 `MatchService` is a transport facade over `Application/MatchCoordinator`. `MatchSession` owns lifecycle state while the coordinator owns queueing, rewards, disconnect handling, and delayed cleanup. `MatchPlacement` records each original character and return position before ring placement. Matches do not enter `Active` unless the configured arena provides enough spawn points and both original characters remain ready through the entrance countdown. Startup errors cancel the session and release its reservation. Cleanup restores original characters before releasing the arena, including when a starting match is cancelled. It skips characters replaced by a respawn. Arena release and arena registration both retry waiting players.
 
-When a match finishes, clients receive `Complete` and combat cleanup is triggered without waiting for the deferred MemoryStore claim and profile reward updates. A pending settlement survives arena cleanup and prevents the same players from requeueing until it resolves. The settlement keeps both profiles owned while either participant departs. Server shutdown applies that same departure callback to every loaded profile. A bounded wait prevents a stalled external call from consuming the entire shutdown window; if the deadline expires, the failure is logged and reward completion cannot be guaranteed.
+When a match finishes, clients receive `Complete` and combat cleanup runs before reward storage. The coordinator persists a result intent and retries failures with capped backoff. A pending handoff survives arena cleanup and blocks requeue. Once the journal durably owns recovery, departure can release the profile without losing the unpaid side. Shutdown bounds only the handoff wait; an already recorded result remains recoverable after the server exits.
 
 The countdown is calculated from entrance lead-in, entrant spacing, presentation duration, and a short buffer. Entrance cues carry the match ID; the client discards stale cues and restores camera, lighting, music, and pyro on match state changes.
 
 ## Persistence
 
-`PlayerRepository` is the only module that knows ProfileStore. Services receive typed player data through `DataService`. Migrations run before reconciliation so legacy Studio-era profiles can be normalized into the current schema. `PendingProfileLoads` keeps profile acquisitions visible during shutdown; `PlayerDeparture` releases loaded profiles as they appear while waiting for pending loads, using one shared deadline. `PlayerDeparture` calls match settlement before releasing a departing player's profile, including during shutdown. Both participants wait on the same pending settlement if they leave while the shared reward claim is in progress, up to the configured shutdown budget. Each profile keeps the most recent 64 rewarded match IDs so in-session retries are idempotent. Failed reward updates are logged; the two profile writes are not one atomic transaction. Profile sanitization keeps an equipped move only when its unlock is owned; otherwise the slot returns to a default move.
+`PlayerRepository` owns ProfileStore sessions, initialization, saved-data confirmation, and release. Migrations run before reconciliation. Initialization failures release acquired sessions, including failures during subscription setup. Shutdown marks the repository closed before waiting for pending loads, so late acquisitions release themselves and cannot register a new profile.
 
-Studio uses ProfileStore mock storage by default. This keeps local testing away from live player data.
+`PendingProfileLoads` tracks acquisitions through completion. `PlayerDeparture` coordinates the match handoff and profile release against one shutdown deadline. Schema 5 adds `MatchRewardSequences`, a server-only per-opponent watermark. Client snapshots omit it. Recent match IDs remain bounded for inspection; they are not the replay protection boundary.
+
+`MatchSettlementJournal` owns durable result intents and opponent-pair sequence records. The cooldown decision and pending claim are a single DataStore update. Payout callbacks must confirm a saved profile watermark before the journal acknowledges that participant. Result removal requires both acknowledgements. Recovery scans one configured page at a time and avoids pair writes when neither profile is loaded on this server. See [the settlement protocol](SETTLEMENTS.md).
+
+Studio uses mock profile and settlement stores by default. Live datastore names are unchanged by schema migrations.
 
 ## Networking
 
@@ -58,7 +62,7 @@ Clients send intent such as attack, grapple direction, pin input, purchase, or l
 
 Roblox may give clients network ownership of their characters. `MovementHistory` samples server-observed positions, rejects implausible horizontal and vertical travel, and requires sampled travel plus bounded velocity for running actions. Combat polling uses the configured sample interval only for active participants; request validation checks the current position between ticks. Target selection also excludes candidates temporarily blocked by this check. This constrains obvious movement spoofing; it does not make replicated transforms fully authoritative. The thresholds in `CombatConfig` should be tuned against live latency and movement data.
 
-Rewards require a minimum active duration and an atomic MemoryStore cooldown claim for the same opponent pair across servers. This reduces quick forfeit, rematch, and server-hop farming. A shared-store failure withholds the payout and is logged rather than silently falling back to a local limit. Studio tests use an in-memory claim. Failed profile updates and balance notifications are reported separately, avoiding a false failure after a successful balance mutation.
+Rewards require a minimum active duration and an atomic durable cooldown claim for the opponent pair. Store failures retain the recorded result for recovery. No reward is acknowledged on an in-memory balance change alone. Balance notifications are separate from saved payout confirmation.
 
 ## State ownership
 
@@ -70,7 +74,7 @@ Profile state belongs to `PlayerRepository`. UI controllers hold presentation st
 
 ## Cleanup and asynchronous work
 
-Trove represents ownership. Connections, session objects, and promises are attached to the object that owns their lifetime.
+`shared/Util/Cleanup` gives the pinned Trove package a concrete application interface; its dynamic Promise boundary is confined to that adapter. Trove represents ownership. Connections, session objects, and promises are attached to the object that owns their lifetime.
 
 Promise is limited to real asynchronous boundaries such as profile loading, entrance sequencing, countdowns, reversal windows, pin timing, and delayed state recovery. Pure calculations return values directly.
 

@@ -7,7 +7,7 @@ local Knit = require(script.Parent.Parent.KnitClient)
 local PinPromptView = require(script.Parent.Parent.UI.PinPromptView)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local Signal = require(ReplicatedStorage.Packages.Signal)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 local CombatController = Knit.CreateController({
 	Name = "CombatController",
@@ -61,11 +61,11 @@ function CombatController:KnitStart()
 		end
 	end)
 
-	self._trove:Connect(self._combatService.ActionStarted, function(event)
+	self._trove:Add(self._combatService.ActionStarted:Connect(function(event)
 		self._animations:PlayStartedAction(event)
-	end)
+	end))
 
-	self._trove:Connect(self._combatService.ActionResolved, function(event)
+	self._trove:Add(self._combatService.ActionResolved:Connect(function(event)
 		if
 			event.Action == "Attack"
 			or event.Action == "RunningAttack"
@@ -76,11 +76,10 @@ function CombatController:KnitStart()
 			self._animations:PlayResolvedAction(event)
 		end
 		self.ActionResolved:Fire(event)
-	end)
+	end))
 
-	self._trove:Connect(
-		self._combatService.GrappleWindow,
-		function(sessionId: string, endsAt: number)
+	self._trove:Add(
+		self._combatService.GrappleWindow:Connect(function(sessionId: string, endsAt: number)
 			self._activeGrappleSession = sessionId
 			local remaining = math.max(0, endsAt - workspace:GetServerTimeNow())
 			local expiry = Promise.delay(remaining + 0.05):andThen(function()
@@ -89,20 +88,20 @@ function CombatController:KnitStart()
 				end
 			end)
 			self._trove:AddPromise(expiry)
-		end
+		end)
 	)
 
-	self._trove:Connect(self._combatService.PinPrompt, function(sessionId, targetTime)
+	self._trove:Add(self._combatService.PinPrompt:Connect(function(sessionId, targetTime)
 		self._activePinSession = sessionId
 		self._pinPrompt:Show(targetTime)
-	end)
+	end))
 
-	self._trove:Connect(self._combatService.PinResolved, function(sessionId)
+	self._trove:Add(self._combatService.PinResolved:Connect(function(sessionId)
 		if self._activePinSession == sessionId then
 			self._activePinSession = nil
 			self._pinPrompt:Hide()
 		end
-	end)
+	end))
 end
 
 return CombatController

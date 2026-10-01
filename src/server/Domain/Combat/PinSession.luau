@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local Promise = require(ReplicatedStorage.Packages.Promise)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 local PinSession = {}
 PinSession.__index = PinSession
@@ -14,7 +14,7 @@ export type PinSession = typeof(setmetatable(
 		Id: string,
 		Pinner: Player,
 		Victim: Player,
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_promptIndex: number,
 		_targetTime: number?,
 		_latencyAllowanceSeconds: number,

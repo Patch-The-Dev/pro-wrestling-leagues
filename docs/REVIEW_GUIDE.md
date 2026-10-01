@@ -15,12 +15,12 @@ This repository presents the Luau application code for Pro Wrestling Leagues. Th
 - Resource costs are committed only after an action is fully validated.
 - Match rewards are issued only from an active match.
 - Match rewards also require sufficient active time and a shared opponent cooldown claim.
-- A reward retry uses the same match ID and cannot mutate the same profile twice while that ID remains in its ledger.
+- A reward retry uses the durable opponent sequence and cannot pay again after recent match IDs are pruned.
 - Grapples revalidate the original target after the reversal window; stale or out-of-range targets take no damage.
 - Incapacitating combat states lock default movement and temporarily request server physics ownership.
 - A poise break from a taunt, turnbuckle action, grapple, pin, or standing-up state reaches `Grounded`; lesser stuns do not release `Grounded` or `Pinned` fighters.
-- Clients receive match completion before the shared reward claim runs; a pending claim still blocks requeue and profile release through the bounded settlement wait.
-- A departing player's profile waits for the match reward claim and both profile updates, up to the configured settlement deadline.
+- Clients receive match completion before storage runs; requeue and departure wait for the durable result handoff.
+- An unpaid participant remains in the settlement journal across departure and server restart; a payout is acknowledged only after its profile watermark is saved.
 - Shutdown releases loaded profiles while waiting for profile loads already in progress, including loads that finish during shutdown, within one shared deadline.
 - Queueing retries when an arena becomes available.
 - Match cleanup returns original characters to their pre-match positions before releasing the arena; a respawned character is left alone.
@@ -39,6 +39,10 @@ This repository presents the Luau application code for Pro Wrestling Leagues. Th
 - Removing an arena model does not clear its active match reservation. A replacement with the same ID becomes available after the old match releases it.
 - Runtime world objects use tags instead of copied scripts.
 - Configuration and player-data schemas are separate from implementation.
+
+## Verification
+
+All runtime source is analyzed in CI, including Application and every service. The Studio runner executes unit, bootstrap, and actual two-client tests. Runtime automation is opt-in on a dedicated Windows runner; inspect its JSON artifact and commit rather than interpreting a skipped job as a pass.
 
 ## Play and assets
 

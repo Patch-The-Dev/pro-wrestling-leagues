@@ -5,14 +5,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 local PinPromptView = {}
 PinPromptView.__index = PinPromptView
 
 export type PinPromptView = typeof(setmetatable(
 	{} :: {
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_gui: ScreenGui?,
 		_label: TextLabel?,
 		_marker: Frame?,
@@ -33,7 +33,7 @@ local function frame(parent: Instance, name: string, color: Color3): Frame
 end
 
 function PinPromptView.new(): PinPromptView
-	local self = setmetatable({
+	local self: PinPromptView = setmetatable({
 		_trove = Trove.new(),
 		_gui = nil :: ScreenGui?,
 		_label = nil :: TextLabel?,
@@ -48,7 +48,7 @@ function PinPromptView.new(): PinPromptView
 	return self
 end
 
-function PinPromptView:_ensureGui(): boolean
+function PinPromptView._ensureGui(self: PinPromptView): boolean
 	if self._gui ~= nil then
 		return true
 	end
@@ -106,7 +106,7 @@ function PinPromptView:_ensureGui(): boolean
 	return true
 end
 
-function PinPromptView:Show(targetTime: number)
+function PinPromptView.Show(self: PinPromptView, targetTime: number)
 	if not self:_ensureGui() then
 		return
 	end
@@ -124,7 +124,7 @@ function PinPromptView:Show(targetTime: number)
 	self:_render()
 end
 
-function PinPromptView:_render()
+function PinPromptView._render(self: PinPromptView)
 	local targetTime = self._targetTime
 	if targetTime == nil then
 		return
@@ -145,14 +145,14 @@ function PinPromptView:_render()
 	end
 end
 
-function PinPromptView:Hide()
+function PinPromptView.Hide(self: PinPromptView)
 	self._targetTime = nil
 	if self._gui ~= nil then
 		self._gui.Enabled = false
 	end
 end
 
-function PinPromptView:Destroy()
+function PinPromptView.Destroy(self: PinPromptView)
 	self._trove:Destroy()
 end
 

@@ -4,7 +4,7 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Signal = require(ReplicatedStorage.Packages.Signal)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 type SpawnPoint = {
 	Index: number,
@@ -19,7 +19,7 @@ export type ArenaRegistry = typeof(setmetatable(
 	{} :: {
 		_arenas: { [string]: Model? },
 		_reservations: { [string]: string },
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		Available: typeof(Signal.new()),
 	},
 	{} :: typeof(ArenaRegistry)
@@ -41,7 +41,7 @@ local function getRequiredPlayers(arena: Model): number?
 end
 
 function ArenaRegistry.new(): ArenaRegistry
-	local self = setmetatable({
+	local self: ArenaRegistry = setmetatable({
 		_arenas = {} :: { [string]: Model? },
 		_reservations = {},
 		_trove = Trove.new(),
@@ -100,7 +100,7 @@ function ArenaRegistry.Remove(self: ArenaRegistry, instance: Instance)
 	end
 end
 
-function ArenaRegistry:Get(arenaId: string): Model?
+function ArenaRegistry.Get(self: ArenaRegistry, arenaId: string): Model?
 	return self._arenas[arenaId]
 end
 
@@ -109,7 +109,7 @@ function ArenaRegistry.Contains(self: ArenaRegistry, arenaId: string, instance: 
 	return arena ~= nil and (instance == arena or instance:IsDescendantOf(arena))
 end
 
-function ArenaRegistry:GetSpawnCFrames(arenaId: string): { CFrame }
+function ArenaRegistry.GetSpawnCFrames(self: ArenaRegistry, arenaId: string): { CFrame }
 	local arena = self:Get(arenaId)
 	if arena == nil then
 		return {}
@@ -152,7 +152,7 @@ function ArenaRegistry:GetSpawnCFrames(arenaId: string): { CFrame }
 	return cframes
 end
 
-function ArenaRegistry:_canHost(arenaId: string, playerCount: number): boolean
+function ArenaRegistry._canHost(self: ArenaRegistry, arenaId: string, playerCount: number): boolean
 	local arena = self:Get(arenaId)
 	if arena == nil or self._reservations[arenaId] ~= nil then
 		return false
@@ -166,7 +166,8 @@ function ArenaRegistry:_canHost(arenaId: string, playerCount: number): boolean
 	return #self:GetSpawnCFrames(arenaId) >= playerCount
 end
 
-function ArenaRegistry:Reserve(
+function ArenaRegistry.Reserve(
+	self: ArenaRegistry,
 	matchId: string,
 	playerCount: number,
 	preferredArenaId: string?
@@ -192,7 +193,7 @@ function ArenaRegistry:Reserve(
 	return nil
 end
 
-function ArenaRegistry:Release(matchId: string)
+function ArenaRegistry.Release(self: ArenaRegistry, matchId: string)
 	for arenaId, reservation in self._reservations do
 		if reservation == matchId then
 			self._reservations[arenaId] = nil
@@ -200,7 +201,7 @@ function ArenaRegistry:Release(matchId: string)
 	end
 end
 
-function ArenaRegistry:Destroy()
+function ArenaRegistry.Destroy(self: ArenaRegistry)
 	self._trove:Destroy()
 	table.clear(self._reservations)
 	table.clear(self._arenas)

@@ -36,7 +36,7 @@ function MatchSession.new(id: string, arenaId: string, players: { Player }): Mat
 	}, MatchSession)
 end
 
-function MatchSession:_setState(state: MatchState)
+function MatchSession._setState(self: MatchSession, state: MatchState)
 	if self.State == state then
 		return
 	end
@@ -44,11 +44,11 @@ function MatchSession:_setState(state: MatchState)
 	self.State = state
 end
 
-function MatchSession:Contains(player: Player): boolean
+function MatchSession.Contains(self: MatchSession, player: Player): boolean
 	return table.find(self.Players, player) ~= nil
 end
 
-function MatchSession:BeginStarting(): boolean
+function MatchSession.BeginStarting(self: MatchSession): boolean
 	if self.State ~= "Waiting" then
 		return false
 	end
@@ -56,7 +56,7 @@ function MatchSession:BeginStarting(): boolean
 	return true
 end
 
-function MatchSession:Start(): boolean
+function MatchSession.Start(self: MatchSession): boolean
 	if self.State ~= "Starting" then
 		return false
 	end
@@ -66,7 +66,7 @@ function MatchSession:Start(): boolean
 	return true
 end
 
-function MatchSession:VoteToEnd(player: Player): boolean
+function MatchSession.VoteToEnd(self: MatchSession, player: Player): boolean
 	if self.State ~= "Active" or not self:Contains(player) then
 		return false
 	end
@@ -81,7 +81,7 @@ function MatchSession:VoteToEnd(player: Player): boolean
 	return votes / #self.Players >= MatchConfig.VoteToEndFraction
 end
 
-function MatchSession:Finish(): boolean
+function MatchSession.Finish(self: MatchSession): boolean
 	if self.State ~= "Active" then
 		return false
 	end
@@ -91,7 +91,7 @@ function MatchSession:Finish(): boolean
 	return true
 end
 
-function MatchSession:Cancel(): boolean
+function MatchSession.Cancel(self: MatchSession): boolean
 	if self.State ~= "Waiting" and self.State ~= "Starting" then
 		return false
 	end
@@ -101,7 +101,7 @@ function MatchSession:Cancel(): boolean
 	return true
 end
 
-function MatchSession:GetDuration(): number
+function MatchSession.GetDuration(self: MatchSession): number
 	if self.StartedAt == nil then
 		return 0
 	end
@@ -109,7 +109,7 @@ function MatchSession:GetDuration(): number
 	return math.max(0, workspace:GetServerTimeNow() - self.StartedAt)
 end
 
-function MatchSession:Destroy()
+function MatchSession.Destroy(self: MatchSession)
 	table.clear(self._votesToEnd)
 end
 

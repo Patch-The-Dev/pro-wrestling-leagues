@@ -5,14 +5,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local EntranceConfig = require(ReplicatedStorage.Shared.Config.EntranceConfig)
 local Promise = require(ReplicatedStorage.Packages.Promise)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 local PyroSystem = {}
 PyroSystem.__index = PyroSystem
 
 export type PyroSystem = typeof(setmetatable(
 	{} :: {
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_generation: number,
 		_activeEmitters: { ParticleEmitter },
 	},
@@ -62,7 +62,7 @@ function PyroSystem.new(): PyroSystem
 	}, PyroSystem)
 end
 
-function PyroSystem:_disableActive()
+function PyroSystem._disableActive(self: PyroSystem)
 	for _, emitter in self._activeEmitters do
 		if emitter.Parent ~= nil then
 			emitter.Enabled = false
@@ -117,7 +117,7 @@ function PyroSystem.Stop(self: PyroSystem)
 	self:_disableActive()
 end
 
-function PyroSystem:Destroy()
+function PyroSystem.Destroy(self: PyroSystem)
 	self:Stop()
 	self._trove:Destroy()
 end

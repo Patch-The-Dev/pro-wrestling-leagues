@@ -5,7 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Knit = require(script.Parent.Parent.KnitClient)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
 local Signal = require(ReplicatedStorage.Packages.Signal)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 type PlayerData = PlayerDataTypes.PlayerData
 
@@ -30,9 +30,9 @@ end
 
 function DataController:KnitStart()
 	self._dataService = Knit.GetService("DataService")
-	self._trove:Connect(self._dataService.ProfileLoaded, function()
+	self._trove:Add(self._dataService.ProfileLoaded:Connect(function()
 		self:_refresh()
-	end)
+	end))
 	self:_refresh():catch(function()
 		-- ProfileLoaded will retry once the server session is ready.
 	end)

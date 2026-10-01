@@ -8,7 +8,7 @@ local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local CombatantModule = require(script.Parent.Combatant)
 local GrappleSessionModule = require(script.Parent.GrappleSession)
 local RecoverySchedulerModule = require(script.Parent.RecoveryScheduler)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 type DamageSpec = CombatTypes.DamageSpec
 type ResolvedAction = CombatTypes.ResolvedAction
@@ -26,7 +26,7 @@ GrappleCoordinator.__index = GrappleCoordinator
 
 export type GrappleCoordinator = typeof(setmetatable(
 	{} :: {
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_sessions: { [string]: GrappleSession },
 		_getCombatant: GetCombatant,
 		_isStillValid: IsStillValid,
@@ -135,7 +135,8 @@ function GrappleCoordinator._resolve(
 	session:Destroy()
 end
 
-function GrappleCoordinator:Start(
+function GrappleCoordinator.Start(
+	self: GrappleCoordinator,
 	initiator: Player,
 	victimPlayer: Player,
 	action: "Grapple" | "RunningGrapple",
@@ -174,12 +175,16 @@ function GrappleCoordinator:Start(
 	return true
 end
 
-function GrappleCoordinator:TryReverse(player: Player, sessionId: string): boolean
-	local session = self._sessions[sessionId]
+function GrappleCoordinator.TryReverse(
+	self: GrappleCoordinator,
+	player: Player,
+	sessionId: string
+): boolean
+	local session: GrappleSession? = self._sessions[sessionId]
 	return session ~= nil and session:TryReverse(player)
 end
 
-function GrappleCoordinator:CancelForPlayer(player: Player)
+function GrappleCoordinator.CancelForPlayer(self: GrappleCoordinator, player: Player)
 	for id, session in self._sessions do
 		if session.Initiator == player or session.Victim == player then
 			self._sessions[id] = nil
@@ -193,7 +198,7 @@ function GrappleCoordinator:CancelForPlayer(player: Player)
 	end
 end
 
-function GrappleCoordinator:Destroy()
+function GrappleCoordinator.Destroy(self: GrappleCoordinator)
 	for id, session in self._sessions do
 		self._sessions[id] = nil
 		session:Destroy()

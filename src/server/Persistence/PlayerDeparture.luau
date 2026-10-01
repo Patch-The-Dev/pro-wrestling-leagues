@@ -30,7 +30,7 @@ function PlayerDeparture.new(repository: Repository): PlayerDeparture
 	}, PlayerDeparture)
 end
 
-function PlayerDeparture:SetBeforeRelease(callback: (Player) -> ())
+function PlayerDeparture.SetBeforeRelease(self: PlayerDeparture, callback: (Player) -> ())
 	self._beforeRelease = callback
 end
 
@@ -96,6 +96,6 @@ function PlayerDeparture.ReleaseAll(
 	self._repository:ReleaseAll()
 end
 
-function PlayerDeparture:Destroy() end
+function PlayerDeparture.Destroy(_self: PlayerDeparture) end
 
 return PlayerDeparture

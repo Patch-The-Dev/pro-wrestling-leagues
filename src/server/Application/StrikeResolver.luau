@@ -6,7 +6,7 @@ local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local CombatTypes = require(ReplicatedStorage.Shared.Types.CombatTypes)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerDataTypes)
 local Promise = require(ReplicatedStorage.Packages.Promise)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 local ActionBudgetModule = require(script.Parent.Parent.Domain.Combat.ActionBudget)
 local CombatRules = require(script.Parent.Parent.Domain.Combat.CombatRules)
@@ -49,7 +49,7 @@ StrikeResolver.__index = StrikeResolver
 
 export type StrikeResolver = typeof(setmetatable(
 	{} :: {
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_dataSource: DataSource,
 		_budget: ActionBudget,
 		_recovery: RecoveryScheduler,
@@ -87,14 +87,23 @@ function StrikeResolver.new(dependencies: Dependencies): StrikeResolver
 	}, StrikeResolver)
 end
 
-function StrikeResolver:_emitResolved(attacker: Player, target: Player?, event: ResolvedAction)
-	local emitted, message = pcall(self._emitToParticipants, attacker, target, event)
+function StrikeResolver._emitResolved(
+	self: StrikeResolver,
+	attacker: Player,
+	target: Player?,
+	event: ResolvedAction
+)
+	local emitted, message = pcall(function()
+		self._emitToParticipants(attacker, target, event)
+		return true
+	end)
 	if not emitted then
 		warn(`Combat presentation failed for user {attacker.UserId}: {tostring(message)}`)
 	end
 end
 
-function StrikeResolver:Request(
+function StrikeResolver.Request(
+	self: StrikeResolver,
 	player: Player,
 	action: CombatAction,
 	combatant: Combatant
@@ -117,7 +126,7 @@ function StrikeResolver:Request(
 		return false, "Move configuration is missing"
 	end
 
-	local actionState = getActionState(action)
+	local actionState: CombatState = getActionState(action)
 	if not combatant:CanSetState(actionState) then
 		return false, "State transition rejected"
 	end
@@ -141,7 +150,10 @@ function StrikeResolver:Request(
 		combatant:AddFinisher(damage.AttackerFinisher)
 		self:_emitResolved(player, nil, event)
 	else
-		local started, startMessage = pcall(self._emitStarted, player, event)
+		local started, startMessage = pcall(function()
+			self._emitStarted(player, event)
+			return true
+		end)
 		if not started then
 			warn(
 				`Combat start presentation failed for user {player.UserId}: {tostring(startMessage)}`
@@ -182,7 +194,8 @@ function StrikeResolver:Request(
 	return true, nil
 end
 
-function StrikeResolver:ApplyWeaponAttack(
+function StrikeResolver.ApplyWeaponAttack(
+	self: StrikeResolver,
 	player: Player,
 	attacker: Combatant,
 	damage: DamageSpec,
@@ -208,7 +221,7 @@ function StrikeResolver:ApplyWeaponAttack(
 	return true
 end
 
-function StrikeResolver:Destroy()
+function StrikeResolver.Destroy(self: StrikeResolver)
 	self._trove:Destroy()
 end
 

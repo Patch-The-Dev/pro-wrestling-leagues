@@ -1,0 +1,8 @@
+local runId = game:GetService("HttpService"):GenerateGUID(false)
+print(`PRO_WRESTLING_LEAGUES_RUN_ID:{runId}`)
+local result = game:GetService("StudioTestService")
+	:ExecuteMultiplayerTestAsync(2, { suite = "WrestlingIntegration", runId = runId })
+assert(type(result) == "table", "Studio returned no integration result")
+assert(result.error == nil, result.error)
+print(`{result.passed} integration checks passed`)
+print("PRO_WRESTLING_LEAGUES_INTEGRATION_PASS")

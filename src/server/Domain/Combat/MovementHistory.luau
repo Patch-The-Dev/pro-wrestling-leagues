@@ -44,7 +44,7 @@ function MovementHistory.new(): MovementHistory
 	return setmetatable({ _samples = {} }, MovementHistory)
 end
 
-function MovementHistory:Seed(player: Player, position: Vector3, now: number)
+function MovementHistory.Seed(self: MovementHistory, player: Player, position: Vector3, now: number)
 	self._samples[player] = {
 		Position = position,
 		Time = now,
@@ -55,7 +55,12 @@ function MovementHistory:Seed(player: Player, position: Vector3, now: number)
 	}
 end
 
-function MovementHistory:Observe(player: Player, position: Vector3, now: number): Vector3?
+function MovementHistory.Observe(
+	self: MovementHistory,
+	player: Player,
+	position: Vector3,
+	now: number
+): Vector3?
 	local sample = self._samples[player]
 	if sample == nil then
 		self:Seed(player, position, now)
@@ -91,12 +96,17 @@ function MovementHistory:Observe(player: Player, position: Vector3, now: number)
 	return nil
 end
 
-function MovementHistory:IsPlausible(player: Player, now: number): boolean
+function MovementHistory.IsPlausible(self: MovementHistory, player: Player, now: number): boolean
 	local sample = self._samples[player]
 	return sample ~= nil and now >= sample.BlockedUntil and now - sample.Time <= 0.5
 end
 
-function MovementHistory:IsRunning(player: Player, velocity: Vector3, now: number): boolean
+function MovementHistory.IsRunning(
+	self: MovementHistory,
+	player: Player,
+	velocity: Vector3,
+	now: number
+): boolean
 	if not self:IsPlausible(player, now) then
 		return false
 	end
@@ -111,11 +121,11 @@ function MovementHistory:IsRunning(player: Player, velocity: Vector3, now: numbe
 		and sample.HorizontalSpeed <= CombatConfig.Movement.MaximumPlausibleSpeed
 end
 
-function MovementHistory:Forget(player: Player)
+function MovementHistory.Forget(self: MovementHistory, player: Player)
 	self._samples[player] = nil
 end
 
-function MovementHistory:Destroy()
+function MovementHistory.Destroy(self: MovementHistory)
 	table.clear(self._samples)
 end
 

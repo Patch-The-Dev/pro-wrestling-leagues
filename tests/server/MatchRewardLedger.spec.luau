@@ -1,39 +1,51 @@
 --!strict
 
 local ServerScriptService = game:GetService("ServerScriptService")
-local MatchRewardLedger = require(ServerScriptService.Server.Domain.Economy.MatchRewardLedger)
+local Ledger = require(ServerScriptService.Server.Domain.Economy.MatchRewardLedger)
+local reward = { Cash = 250, Tickets = 1, Experience = 5, Fame = 2 }
 
 return function()
-	describe("MatchRewardLedger", function()
-		it("applies each match result to a profile only once", function()
-			local data = {
-				Currencies = { Cash = 0, Tickets = 0 },
-				Progression = { Experience = 0, Fame = 0 },
-				Statistics = { Wins = 0, Losses = 0, RecentMatchIds = {} },
-			} :: any
-			local matchId = "00000000-0000-0000-0000-000000000001"
-			expect(MatchRewardLedger.Apply(data, matchId, true)).to.equal(true)
-			expect(MatchRewardLedger.Apply(data, matchId, true)).to.equal(false)
-			expect(data.Statistics.Wins).to.equal(1)
-			expect(data.Currencies.Cash).to.equal(250)
-			expect(#data.Statistics.RecentMatchIds).to.equal(1)
+	local function data()
+		return {
+			Currencies = { Cash = 0, Tickets = 0 },
+			Progression = { Experience = 0, Fame = 0 },
+			Statistics = { Wins = 0, Losses = 0, RecentMatchIds = {} },
+		} :: any
+	end
+	describe("Durable reward sequence", function()
+		it("rejects balance overflow before applying any reward or watermark", function()
+			local profile = data()
+			profile.Currencies.Cash = 9_007_199_254_740_991
+			expect(function()
+				Ledger.ApplySettlement(profile, 22, 1, "overflow", true, reward)
+			end).to.throw()
+			expect(profile.Currencies.Tickets).to.equal(0)
+			expect(profile.Statistics.Wins).to.equal(0)
+			expect(profile.MatchRewardSequences).to.equal(nil)
 		end)
-
-		it("bounds the stored settlement history", function()
-			local data = {
-				Currencies = { Cash = 0, Tickets = 0 },
-				Progression = { Experience = 0, Fame = 0 },
-				Statistics = { Wins = 0, Losses = 0, RecentMatchIds = {} },
-			} :: any
-			for index = 1, 65 do
-				local id = string.format("00000000-0000-0000-0000-%012d", index)
-				MatchRewardLedger.Apply(data, id, false)
+		it("applies a sequence once and accepts an already saved replay", function()
+			local profile = data()
+			expect(Ledger.ApplySettlement(profile, 22, 1, "first", true, reward)).to.equal(true)
+			expect(Ledger.ApplySettlement(profile, 22, 1, "first", true, reward)).to.equal(true)
+			expect(profile.Statistics.Wins).to.equal(1)
+			expect(profile.Currencies.Cash).to.equal(250)
+		end)
+		it("rejects a later sequence until the missing one has been applied", function()
+			local profile = data()
+			expect(Ledger.ApplySettlement(profile, 22, 2, "second", true, reward)).to.equal(false)
+			expect(profile.Currencies.Cash).to.equal(0)
+			expect(Ledger.ApplySettlement(profile, 22, 1, "first", true, reward)).to.equal(true)
+			expect(Ledger.ApplySettlement(profile, 22, 2, "second", true, reward)).to.equal(true)
+		end)
+		it("rejects duplicate payouts after recent match IDs have been pruned", function()
+			local profile = data()
+			for sequence = 1, 100 do
+				Ledger.ApplySettlement(profile, 22, sequence, tostring(sequence), false, reward)
 			end
-			expect(#data.Statistics.RecentMatchIds).to.equal(64)
-			expect(data.Statistics.Losses).to.equal(65)
-			expect(data.Statistics.RecentMatchIds[1]).to.equal(
-				"00000000-0000-0000-0000-000000000002"
-			)
+			expect(#profile.Statistics.RecentMatchIds).to.equal(64)
+			Ledger.ApplySettlement(profile, 22, 1, "1", false, reward)
+			expect(profile.Statistics.Losses).to.equal(100)
+			expect(profile.Currencies.Cash).to.equal(25000)
 		end)
 	end)
 end

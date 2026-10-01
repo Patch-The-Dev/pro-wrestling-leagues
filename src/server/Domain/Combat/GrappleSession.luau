@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local Promise = require(ReplicatedStorage.Packages.Promise)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 local GrappleSession = {}
 GrappleSession.__index = GrappleSession
@@ -14,7 +14,7 @@ export type GrappleSession = typeof(setmetatable(
 		Id: string,
 		Initiator: Player,
 		Victim: Player,
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_resolved: boolean,
 		_reversed: boolean,
 		_startedAt: number,

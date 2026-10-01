@@ -4,17 +4,17 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Promise = require(ReplicatedStorage.Packages.Promise)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 local CameraSystem = {}
 CameraSystem.__index = CameraSystem
 
 export type CameraSystem = typeof(setmetatable(
 	{} :: {
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_generation: number,
 		_baselineType: Enum.CameraType?,
-		_baselineSubject: Instance?,
+		_baselineSubject: (BasePart | Humanoid)?,
 	},
 	CameraSystem
 ))
@@ -24,11 +24,11 @@ function CameraSystem.new(): CameraSystem
 		_trove = Trove.new(),
 		_generation = 0,
 		_baselineType = nil :: Enum.CameraType?,
-		_baselineSubject = nil :: Instance?,
+		_baselineSubject = nil :: (BasePart | Humanoid)?,
 	}, CameraSystem)
 end
 
-function CameraSystem:_restore(camera: Camera)
+function CameraSystem._restore(self: CameraSystem, camera: Camera)
 	local baselineType = self._baselineType
 	self._baselineType = nil
 
@@ -76,7 +76,7 @@ function CameraSystem.Stop(self: CameraSystem)
 	end
 end
 
-function CameraSystem:Destroy()
+function CameraSystem.Destroy(self: CameraSystem)
 	self:Stop()
 	self._trove:Destroy()
 end

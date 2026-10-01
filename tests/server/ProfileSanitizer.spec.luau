@@ -8,6 +8,27 @@ local ProfileSanitizer = require(ServerScriptService.Server.Persistence.ProfileS
 
 return function()
 	describe("ProfileSanitizer move ownership", function()
+		it("preserves valid reward watermarks and removes malformed keys and sequences", function()
+			local data = {
+				MatchRewardSequences = {
+					[42] = 5,
+					["11"] = 3,
+					["-1"] = 2,
+					["0"] = 4,
+					invalid = 1,
+					["22"] = 0 / 0,
+					["33"] = -1,
+				},
+			} :: any
+			ProfileSanitizer.Apply(data)
+			expect(data.MatchRewardSequences["11"]).to.equal(3)
+			expect(data.MatchRewardSequences["-1"]).to.equal(2)
+			expect(data.MatchRewardSequences[42]).to.equal(nil)
+			expect(data.MatchRewardSequences["0"]).to.equal(nil)
+			expect(data.MatchRewardSequences.invalid).to.equal(nil)
+			expect(data.MatchRewardSequences["22"]).to.equal(nil)
+			expect(data.MatchRewardSequences["33"]).to.equal(nil)
+		end)
 		it("does not grant an equipped paid move absent from unlocks", function()
 			local data = {
 				Wrestler = { Moves = { GrappleForward = "Piledriver" } },

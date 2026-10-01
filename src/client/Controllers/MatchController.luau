@@ -5,7 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Knit = require(script.Parent.Parent.KnitClient)
 local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 local Signal = require(ReplicatedStorage.Packages.Signal)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 type MatchUpdate = NetworkTypes.MatchUpdate
 
@@ -22,10 +22,10 @@ end
 
 function MatchController:KnitStart()
 	self._matchService = Knit.GetService("MatchService")
-	self._trove:Connect(self._matchService.MatchChanged, function(snapshot)
+	self._trove:Add(self._matchService.MatchChanged:Connect(function(snapshot)
 		self._match = snapshot
 		self.Changed:Fire(snapshot)
-	end)
+	end))
 end
 
 function MatchController:JoinQueue()

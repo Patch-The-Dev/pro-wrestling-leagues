@@ -14,7 +14,7 @@ function PendingProfileLoads.new(): PendingProfileLoads
 	return setmetatable({ _pending = {} }, PendingProfileLoads)
 end
 
-function PendingProfileLoads:Start(player: Player): boolean
+function PendingProfileLoads.Start(self: PendingProfileLoads, player: Player): boolean
 	if self._pending[player] then
 		return false
 	end
@@ -22,11 +22,11 @@ function PendingProfileLoads:Start(player: Player): boolean
 	return true
 end
 
-function PendingProfileLoads:Finish(player: Player)
+function PendingProfileLoads.Finish(self: PendingProfileLoads, player: Player)
 	self._pending[player] = nil
 end
 
-function PendingProfileLoads:HasPending(): boolean
+function PendingProfileLoads.HasPending(self: PendingProfileLoads): boolean
 	return next(self._pending) ~= nil
 end
 

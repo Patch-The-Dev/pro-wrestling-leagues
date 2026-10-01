@@ -16,7 +16,7 @@ Pro Wrestling Leagues is a full-stack, solo-developed wrestling game with multip
 | Grapples and pins | [`GrappleCoordinator`](src/server/Domain/Combat/GrappleCoordinator.luau), [`PinCoordinator`](src/server/Domain/Combat/PinCoordinator.luau), [`PinPromptView`](src/client/UI/PinPromptView.luau) | Timed reversals, visible pin timing, directional moves, and state transitions |
 | Matches | [`MatchCoordinator`](src/server/Application/MatchCoordinator.luau), [`MatchPlacement`](src/server/Domain/Match/MatchPlacement.luau), [`MatchSession`](src/server/Domain/Match/MatchSession.luau) | Two-player queueing, arena reservation, character return, results, disconnects, and cleanup |
 | Player data | [`PlayerRepository`](src/server/Persistence/PlayerRepository.luau), [`ProfileMigrations`](src/server/Persistence/ProfileMigrations.luau) | A single persistence boundary with schema migration and Studio mock storage |
-| Economy | [`EconomyService`](src/server/Services/EconomyService.luau), [`RewardCooldown`](src/server/Domain/Economy/RewardCooldown.luau) | Server-owned match rewards, cross-server opponent limits, prices, balances, and unlocks |
+| Economy | [`EconomyService`](src/server/Services/EconomyService.luau), [`MatchSettlementJournal`](src/server/Persistence/MatchSettlementJournal.luau) | Server-owned match rewards, cross-server opponent limits, prices, balances, and unlocks |
 | Presentation | [`src/client`](https://github.com/Patch-The-Dev/pro-wrestling-leagues/tree/main/src/client), [`EntranceService`](src/server/Services/EntranceService.luau) | Inputs, HUD, animation, cameras, audio, lighting, and entrances kept apart from authoritative rules |
 
 Start with the [review guide](docs/REVIEW_GUIDE.md) for a short reading order, or read the [architecture notes](docs/ARCHITECTURE.md) for the dependency and ownership rules.
@@ -31,7 +31,19 @@ The server also manages arena weapons and turnbuckle interactions. Weapon instan
 
 The client reuses animation tracks for repeated actions on the same Animator and releases them when that character is removed.
 
-Eligible match rewards feed persistent Cash, Tickets, experience, fame, and win/loss records. A match must last at least 30 seconds to pay out. The match-complete event and combat cleanup do not wait for reward storage. A MemoryStore claim prevents the same opponent pair from earning another payout across servers for 10 minutes. If the shared claim fails, the match ends without a payout and the failure is logged. Early forfeits also pay nothing. A pending settlement blocks requeueing; normal departure and shutdown both attempt to finish it before profile release, with a bounded wait during an infrastructure stall. Each profile records a bounded set of recent match IDs, so a retry cannot apply the same result twice. Failed updates get short in-session retries and are logged if they still fail. The two profile updates are separate writes, so this is not a cross-profile transaction. The shop checks item prices and ownership on the server. Saved move loadouts are checked against owned unlocks before use; an unowned move falls back to its default slot. Client controllers handle the interface and audiovisual response to events; they do not decide combat outcomes or write profile data.
+### Durable match rewards
+
+Eligible matches pay Cash, Tickets, experience, fame, and win/loss records after at least 30 seconds of active play. Match completion and combat cleanup run immediately; storage work follows separately.
+
+1. **Persist the result.** A result record contains the match ID, participants, finish time, and fixed reward amounts. The coordinator retries until this handoff succeeds. Requeue and departure wait for that handoff within the configured shutdown budget.
+2. **Claim the pair sequence.** One atomic DataStore update checks the 10-minute opponent cooldown and records the next sequence together with both unpaid participants. Another match cannot replace an unfinished pair settlement.
+3. **Apply and confirm each payout.** The profile repository changes balances once per opponent sequence, requests a ProfileStore save, and waits for saved data containing that sequence. Each side has its own acknowledgement.
+4. **Recover unfinished work.** A bounded background scan resumes pending records when either participant has a loaded profile. A player who was offline receives the outstanding payout after returning. A replacement server uses the same durable records.
+5. **Retire completed results.** The result record is removed only after both profile saves are confirmed. The pair sequence and each profile's opponent watermark remain, so pruning the 64 recent match IDs cannot make an old result payable again.
+
+An unavailable store leaves the result pending. A save timeout, failed acknowledgement, or restart does not silently turn a partial payout into a completed settlement. Studio uses mock profile and settlement stores. [Settlement protocol and operations](docs/SETTLEMENTS.md) explains retry ordering, recovery, and storage limits.
+
+The shop checks prices and ownership on the server. Saved move loadouts require owned unlocks; unowned moves fall back to their default slots. Controllers render results without writing authoritative player data.
 
 The server records match outcomes, reasons, and duration for connected participants through Roblox analytics in the live experience. Reward update failures are logged separately so missing profile updates are visible during operation.
 
@@ -90,45 +102,39 @@ Connect Roblox Studio to the Rojo server to sync the source tree. For an XML pla
 rojo build default.project.json -o ProWrestlingLeagues.rbxlx
 ```
 
-The [source checks workflow](.github/workflows/ci.yml) installs the pinned packages, checks that the lockfile stays unchanged, runs formatting and lint, type-checks the client, shared code, server adapters, components, domain rules, networking, persistence, and seven services, and builds both Rojo projects. The Luau analyzer uses versioned Roblox definitions with a checked checksum. Application coordinators and the remaining services are outside that analyzer gate; the Studio suite and bootstrap check exercise their runtime behavior. To run the format, lint, and build checks locally:
+### Verification
 
-```sh
-git diff --exit-code -- wally.lock
-stylua --check src tests
-selene src tests
-rojo build default.project.json -o ProWrestlingLeagues.rbxlx
-rojo build test.project.json -o ProWrestlingLeaguesTests.rbxlx
-```
+The [source checks workflow](.github/workflows/ci.yml) verifies the package lock, formatting, lint, **all runtime Luau source**, and the game, unit, and multiplayer Rojo builds. Application coordinators and every service are included in analysis. Roblox definitions and Actions are pinned to checked versions.
 
-The isolated TestEZ place covers match state, startup rollback, character return before arena release, queue retries, slow reward claims, shutdown settlement and pending loads, duplicate-safe rewards, damage reactions, combat movement locks, grapple validation, horizontal and vertical movement plausibility, teleport rejection after the lock expires, weapon pickup validation, strike impact timing, weapon rollback, reversals, pin timing, player data ownership, and recovery cancellation. On Windows, the checked-in runner builds the test place, runs it in Studio, and fails if the passing result is missing:
+On Windows with Roblox Studio installed and signed in:
 
 ```powershell
-.\tests\RunStudioTests.ps1
+./tests/RunStudioTests.ps1 -ReportPath "$env:TEMP/wrestling-runtime.json"
+# Select a suite when investigating a failure:
+./tests/RunStudioTests.ps1 -Suite Unit
+./tests/RunStudioTests.ps1 -Suite Bootstrap
+./tests/RunStudioTests.ps1 -Suite Integration
 ```
 
-The same runner can check that all server services initialize together in the built game place:
+| Suite | What it exercises |
+| --- | --- |
+| Unit | Combat states, delayed impact, reversals, pins, movement bounds, weapon ownership, arena replacement, startup rollback, profile cleanup, shutdown, durable settlement recovery, partial payouts, lost acknowledgements, paginated recovery, and permanent replay protection. |
+| Bootstrap | All server services initialize together with the pinned dependencies. |
+| Multiplayer | Two actual Studio clients run the production server and client entrypoints. The test verifies controller startup, loads profiles, rejects a malformed combat request, queues both players, starts a real match, waits through the real reward-duration gate, finishes it, and confirms both saved payouts, duplicate-safe replay, and replicated match completion in both client controllers. Unhandled application errors fail the suite on both clients and the server. |
 
-```powershell
-.\tests\RunStudioTests.ps1 -Bootstrap
-```
+The tests use isolated fixtures and mock data stores. They do not publish a place or change live player data. The production project excludes test scripts and TestEZ. Each runtime report records the commit, whether the working tree was dirty, completion time, suite totals, and pass/fail status. Missing results, skipped tests, and timeouts fail the command.
 
-You can also open `ProWrestlingLeaguesTests.rbxlx` in Studio and run the specs manually from the command bar:
-
-```lua
-local TestEZ = require(game.ReplicatedStorage.DevPackages.TestEZ)
-local result = TestEZ.TestBootstrap:run({ game.ServerScriptService.Tests }, TestEZ.Reporters.TextReporter)
-assert(result.failureCount == 0)
-```
-
-GitHub Actions checks formatting, lint, the configured Luau analyzer scope, and both Rojo builds. The TestEZ suite and server bootstrap run locally in Roblox Studio through the script above; the workflow does not run Studio tests.
+The [Studio runtime workflow](.github/workflows/studio.yml) runs these same suites after successful source checks on trusted `main` pushes, once a dedicated Windows runner is enabled. It does not execute pull requests or forks on the signed-in machine. [Studio CI setup](docs/STUDIO_CI.md) covers installation and the opt-in repository variable. A skipped workflow is not a runtime pass.
 
 The source tree is the reviewable application layer; the [live Roblox game](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES) is the playable project. Studio-authored arenas, UI, animation, sound, and cosmetic assets connect through the documented runtime contract.
 
 ## Further reading
 
+- [Settlement protocol](docs/SETTLEMENTS.md): confirmed payouts, replay protection, and recovery.
+- [Studio CI](docs/STUDIO_CI.md): runtime automation and reports.
 - [Architecture](docs/ARCHITECTURE.md): module boundaries, state ownership, and cleanup.
 - [Review guide](docs/REVIEW_GUIDE.md): suggested reading order and invariants to check.
 - [Runtime assets](docs/RUNTIME_ASSETS.md): arena, weapon, animation, and entrance contracts.
 - [Engineering notes](docs/ENGINEERING_NOTES.md): source organization and design decisions.
 
-**Note:** I built Pro Wrestling Leagues as PatchTheDev. [Roblox records the game's creation in April 2025](https://games.roblox.com/v1/games?universeIds=7587071589), and you can [play the full game](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES). This repository was published later to make its Luau source available for review. The [project page](https://www.patchthedev.com/work/pro-wrestling-leagues) includes gameplay footage and further details.
+**Note:** I built Pro Wrestling Leagues as PatchTheDev. [Roblox records the game's creation in April 2025](https://games.roblox.com/v1/games?universeIds=7587071589), and you can [play the full game](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES). This repository presents the resulting game source for code review. My day-to-day contribution history is tied to a different GitHub account for organizational clarity and client privacy. The [project page](https://www.patchthedev.com/work/pro-wrestling-leagues) includes gameplay footage and further details.

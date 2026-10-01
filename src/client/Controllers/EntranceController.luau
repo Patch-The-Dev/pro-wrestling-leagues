@@ -10,7 +10,7 @@ local LightingSystem = require(script.Parent.Parent.Systems.LightingSystem)
 local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local PyroSystem = require(script.Parent.Parent.Systems.PyroSystem)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 type EntranceCue = NetworkTypes.EntranceCue
 
@@ -47,7 +47,7 @@ function EntranceController:KnitStart()
 			self:_stopPresentation()
 		end
 	end)
-	self._trove:Connect(self._service.EntranceCue, function(cue: EntranceCue)
+	self._trove:Add(self._service.EntranceCue:Connect(function(cue: EntranceCue)
 		local generation = self._generation
 		local waitSeconds = math.max(0, cue.StartsAt - workspace:GetServerTimeNow())
 		local promise = Promise.delay(waitSeconds):andThen(function()
@@ -66,7 +66,7 @@ function EntranceController:KnitStart()
 			self._lighting:PlayPreset(cue.LightingPreset, EntranceConfig.LightingHoldSeconds)
 		end)
 		self._trove:AddPromise(promise)
-	end)
+	end))
 end
 
 function EntranceController:Preview()

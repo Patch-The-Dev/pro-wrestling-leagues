@@ -18,7 +18,7 @@ function AudioSystem.new(): AudioSystem
 	}, AudioSystem)
 end
 
-function AudioSystem:PlayMusic(assetId: string?)
+function AudioSystem.PlayMusic(self: AudioSystem, assetId: string?)
 	self:StopMusic()
 	if assetId == nil then
 		return
@@ -45,7 +45,7 @@ function AudioSystem.StopMusic(self: AudioSystem)
 	end
 end
 
-function AudioSystem:Destroy()
+function AudioSystem.Destroy(self: AudioSystem)
 	self:StopMusic()
 end
 

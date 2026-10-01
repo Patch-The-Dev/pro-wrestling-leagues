@@ -5,7 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local RequestGuardModule = require(script.Parent.Parent.Networking.RequestGuard)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 local RequestGateService = Knit.CreateService({
 	Name = "RequestGateService",

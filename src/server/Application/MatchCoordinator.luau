@@ -8,12 +8,11 @@ local MatchConfig = require(ReplicatedStorage.Shared.Config.MatchConfig)
 local MatchTypes = require(ReplicatedStorage.Shared.Types.MatchTypes)
 local NetworkTypes = require(ReplicatedStorage.Shared.Types.NetworkTypes)
 local Promise = require(ReplicatedStorage.Packages.Promise)
-local Trove = require(ReplicatedStorage.Packages.Trove)
+local Trove = require(ReplicatedStorage.Shared.Util.Cleanup)
 
 local ArenaRegistryModule = require(script.Parent.Parent.Components.ArenaRegistry)
 local MatchPlacementModule = require(script.Parent.Parent.Domain.Match.MatchPlacement)
 local MatchSessionModule = require(script.Parent.Parent.Domain.Match.MatchSession)
-local RewardCooldownModule = require(script.Parent.Parent.Domain.Economy.RewardCooldown)
 local RewardPolicy = require(script.Parent.Parent.Domain.Economy.RewardPolicy)
 
 type ArenaRegistry = ArenaRegistryModule.ArenaRegistry
@@ -22,7 +21,6 @@ type MatchResult = MatchTypes.MatchResult
 type MatchSession = MatchSessionModule.MatchSession
 type MatchPlacement = MatchPlacementModule.MatchPlacement
 type MatchUpdate = NetworkTypes.MatchUpdate
-type RewardCooldown = RewardCooldownModule.RewardCooldown
 type Settlement = {
 	Complete: boolean,
 	Cleaned: boolean,
@@ -34,11 +32,12 @@ type DataSource = {
 }
 
 type EconomySource = {
-	ApplyMatchReward: (
+	RecordMatchResult: (
 		self: EconomySource,
-		player: Player,
-		didWin: boolean,
-		matchId: string
+		winner: Player,
+		loser: Player,
+		matchId: string,
+		finishedAt: number
 	) -> boolean,
 }
 
@@ -81,7 +80,7 @@ end
 
 export type MatchCoordinator = typeof(setmetatable(
 	{} :: {
-		_trove: typeof(Trove.new()),
+		_trove: Trove.Trove,
 		_arenaRegistry: ArenaRegistry,
 		_dataSource: DataSource,
 		_economySource: EconomySource,
@@ -90,11 +89,11 @@ export type MatchCoordinator = typeof(setmetatable(
 		_emitMatchChanged: EmitMatchChanged,
 		_onSessionClosed: OnSessionClosed,
 		_queue: { Player },
-		_matchesByPlayer: { [Player]: MatchSession },
+		_matchesByPlayer: { [Player]: MatchSession? },
 		_sessions: { [string]: MatchSession },
 		_placements: { [string]: MatchPlacement },
 		_settlementsByPlayer: { [Player]: Settlement },
-		_rewardCooldown: RewardCooldown,
+		_destroyed: boolean,
 	},
 	{} :: typeof(MatchCoordinator)
 ))
@@ -102,9 +101,8 @@ export type MatchCoordinator = typeof(setmetatable(
 function MatchCoordinator.new(dependencies: Dependencies): MatchCoordinator
 	local trove = Trove.new()
 	local arenaRegistry = ArenaRegistryModule.new()
-	local rewardCooldown = RewardCooldownModule.new()
 
-	local self = setmetatable({
+	local self: MatchCoordinator = setmetatable({
 		_trove = trove,
 		_arenaRegistry = arenaRegistry,
 		_dataSource = dependencies.DataSource,
@@ -118,22 +116,26 @@ function MatchCoordinator.new(dependencies: Dependencies): MatchCoordinator
 		_sessions = {},
 		_placements = {},
 		_settlementsByPlayer = {},
-		_rewardCooldown = rewardCooldown,
+		_destroyed = false,
 	}, MatchCoordinator)
 
-	trove:Add(arenaRegistry)
-	trove:Add(rewardCooldown)
-	trove:Connect(arenaRegistry.Available, function()
+	trove:Add(function()
+		arenaRegistry:Destroy()
+	end)
+	local availableConnection = arenaRegistry.Available:Connect(function()
 		self:_matchmake()
+	end)
+	trove:Add(function()
+		availableConnection:Disconnect()
 	end)
 	return self
 end
 
-function MatchCoordinator:_queueIndex(player: Player): number?
+function MatchCoordinator._queueIndex(self: MatchCoordinator, player: Player): number?
 	return table.find(self._queue, player)
 end
 
-function MatchCoordinator:JoinQueue(player: Player): (boolean, string?)
+function MatchCoordinator.JoinQueue(self: MatchCoordinator, player: Player): (boolean, string?)
 	if not self._dataSource:IsLoaded(player) then
 		return false, "Player data is not loaded"
 	end
@@ -157,7 +159,7 @@ function MatchCoordinator:JoinQueue(player: Player): (boolean, string?)
 	return true, nil
 end
 
-function MatchCoordinator:LeaveQueue(player: Player)
+function MatchCoordinator.LeaveQueue(self: MatchCoordinator, player: Player)
 	local index = self:_queueIndex(player)
 	if index == nil then
 		return
@@ -167,8 +169,8 @@ function MatchCoordinator:LeaveQueue(player: Player)
 	self._emitQueueChanged(player, false)
 end
 
-function MatchCoordinator:_isQueueReady(player: Player): boolean
-	local settlement = self._settlementsByPlayer[player]
+function MatchCoordinator._isQueueReady(self: MatchCoordinator, player: Player): boolean
+	local settlement: Settlement? = self._settlementsByPlayer[player]
 	return player.Parent == Players
 		and self._dataSource:IsLoaded(player)
 		and self._matchesByPlayer[player] == nil
@@ -176,11 +178,12 @@ function MatchCoordinator:_isQueueReady(player: Player): boolean
 		and isCharacterReady(player)
 end
 
-function MatchCoordinator:_matchmake()
+function MatchCoordinator._matchmake(self: MatchCoordinator)
 	while #self._queue >= MatchConfig.MinimumPlayers do
 		local players: { Player } = {}
 		while #players < MatchConfig.MaximumPlayers and #self._queue > 0 do
 			local player = table.remove(self._queue, 1)
+			assert(player ~= nil, "Non-empty queue must contain a player")
 			if self:_isQueueReady(player) then
 				table.insert(players, player)
 			else
@@ -208,14 +211,22 @@ function MatchCoordinator:_matchmake()
 	end
 end
 
-function MatchCoordinator:_notifyMatchChanged(player: Player, update: MatchUpdate)
-	local notified, notificationError = pcall(self._emitMatchChanged, player, update)
+function MatchCoordinator._notifyMatchChanged(
+	self: MatchCoordinator,
+	player: Player,
+	update: MatchUpdate
+)
+	local notified, notificationError = pcall(function()
+		self._emitMatchChanged(player, update)
+		return true
+	end)
 	if not notified then
 		warn(`Match notification failed for user {player.UserId}: {tostring(notificationError)}`)
 	end
 end
 
-function MatchCoordinator:_startCountdown(
+function MatchCoordinator._startCountdown(
+	self: MatchCoordinator,
 	session: MatchSession,
 	startingCharacters: { [Player]: Model }
 )
@@ -259,7 +270,7 @@ function MatchCoordinator:_startCountdown(
 	self._trove:AddPromise(countdown)
 end
 
-function MatchCoordinator:_createMatch(players: { Player }): boolean
+function MatchCoordinator._createMatch(self: MatchCoordinator, players: { Player }): boolean
 	local id = HttpService:GenerateGUID(false)
 	local session: MatchSession? = nil
 	local initialized, result = pcall(function(): boolean
@@ -306,12 +317,15 @@ function MatchCoordinator:_createMatch(players: { Player }): boolean
 	end
 	if session ~= nil then
 		local failedSession = session
-		local rolledBack, rollbackError = pcall(self._cancelStartingSession, self, failedSession)
+		local rolledBack, rollbackError = pcall(function()
+			self:_cancelStartingSession(failedSession)
+			return true
+		end)
 		if not rolledBack or self._sessions[id] == failedSession then
 			if not rolledBack then
 				warn(`Match {id} rollback failed: {tostring(rollbackError)}`)
 			end
-			local placement = self._placements[id]
+			local placement: MatchPlacement? = self._placements[id]
 			if placement ~= nil then
 				pcall(placement.Restore, placement)
 				self._placements[id] = nil
@@ -331,24 +345,7 @@ function MatchCoordinator:_createMatch(players: { Player }): boolean
 	return false
 end
 
-function MatchCoordinator:_award(player: Player, didWin: boolean, matchId: string)
-	local lastError: unknown = nil
-	for attempt = 1, 3 do
-		local succeeded, awarded = pcall(function()
-			return self._economySource:ApplyMatchReward(player, didWin, matchId)
-		end)
-		if succeeded and awarded then
-			return
-		end
-		lastError = awarded
-		if attempt < 3 then
-			task.wait(0.15 * attempt)
-		end
-	end
-	warn(`Match reward failed for user {player.UserId} in match {matchId}: {tostring(lastError)}`)
-end
-
-function MatchCoordinator:_releaseSettlement(settlement: Settlement)
+function MatchCoordinator._releaseSettlement(self: MatchCoordinator, settlement: Settlement)
 	if not settlement.Complete or not settlement.Cleaned then
 		return
 	end
@@ -359,7 +356,7 @@ function MatchCoordinator:_releaseSettlement(settlement: Settlement)
 	end
 end
 
-function MatchCoordinator:_completeSettlement(settlement: Settlement)
+function MatchCoordinator._completeSettlement(self: MatchCoordinator, settlement: Settlement)
 	if settlement.Complete then
 		return
 	end
@@ -367,7 +364,11 @@ function MatchCoordinator:_completeSettlement(settlement: Settlement)
 	self:_releaseSettlement(settlement)
 end
 
-function MatchCoordinator:_waitForSettlement(settlement: Settlement, deadline: number)
+function MatchCoordinator._waitForSettlement(
+	_self: MatchCoordinator,
+	settlement: Settlement,
+	deadline: number
+)
 	while not settlement.Complete and os.clock() < deadline do
 		task.wait(0.1)
 	end
@@ -376,26 +377,35 @@ function MatchCoordinator:_waitForSettlement(settlement: Settlement, deadline: n
 	end
 end
 
-function MatchCoordinator:_settleRewards(
+function MatchCoordinator._settleRewards(
+	self: MatchCoordinator,
 	settlement: Settlement,
 	winner: Player,
 	loser: Player,
-	matchId: string
+	matchId: string,
+	finishedAt: number
 )
-	local succeeded, settlementError = pcall(function()
-		local now = workspace:GetServerTimeNow()
-		if self._rewardCooldown:TryClaim(winner.UserId, loser.UserId, now) then
-			self:_award(winner, true, matchId)
-			self:_award(loser, false, matchId)
+	local attempt = 0
+	while not self._destroyed do
+		attempt += 1
+		local succeeded, recorded = pcall(function()
+			return self._economySource:RecordMatchResult(winner, loser, matchId, finishedAt)
+		end)
+		if succeeded and recorded then
+			-- Completion here means the journal durably owns recovery, not that
+			-- an unconfirmed in-memory balance change counts as a saved payout.
+			self:_completeSettlement(settlement)
+			return
 		end
-	end)
-	if not succeeded then
-		warn(`Match reward settlement failed for match {matchId}: {tostring(settlementError)}`)
+		if attempt == 1 or attempt % 10 == 0 then
+			warn(`Match result {matchId} still awaits durable recording: {tostring(recorded)}`)
+		end
+		task.wait(math.min(5, 0.5 * 2 ^ math.min(attempt - 1, 4)))
 	end
-	self:_completeSettlement(settlement)
+	warn(`Match result {matchId} could not be recorded before shutdown`)
 end
 
-function MatchCoordinator:_placePlayers(session: MatchSession): boolean
+function MatchCoordinator._placePlayers(self: MatchCoordinator, session: MatchSession): boolean
 	local spawns = self._arenaRegistry:GetSpawnCFrames(session.ArenaId)
 	local placement = MatchPlacementModule.new(session.Players, spawns)
 	if placement == nil or not placement:Place() then
@@ -405,8 +415,8 @@ function MatchCoordinator:_placePlayers(session: MatchSession): boolean
 	return true
 end
 
-function MatchCoordinator:GetOpponents(player: Player): { Player }
-	local session = self._matchesByPlayer[player]
+function MatchCoordinator.GetOpponents(self: MatchCoordinator, player: Player): { Player }
+	local session: MatchSession? = self._matchesByPlayer[player]
 	if session == nil then
 		return {}
 	end
@@ -420,34 +430,42 @@ function MatchCoordinator:GetOpponents(player: Player): { Player }
 	return opponents
 end
 
-function MatchCoordinator:IsMatchActiveFor(player: Player): boolean
-	local session = self._matchesByPlayer[player]
+function MatchCoordinator.IsMatchActiveFor(self: MatchCoordinator, player: Player): boolean
+	local session: MatchSession? = self._matchesByPlayer[player]
 	return session ~= nil and session.State == "Active"
 end
 
-function MatchCoordinator:IsMatchInProgressFor(player: Player): boolean
-	local session = self._matchesByPlayer[player]
+function MatchCoordinator.IsMatchInProgressFor(self: MatchCoordinator, player: Player): boolean
+	local session: MatchSession? = self._matchesByPlayer[player]
 	return session ~= nil and (session.State == "Starting" or session.State == "Active")
 end
 
-function MatchCoordinator:_getArenaId(player: Player): string?
-	local session = self._matchesByPlayer[player]
+function MatchCoordinator._getArenaId(self: MatchCoordinator, player: Player): string?
+	local session: MatchSession? = self._matchesByPlayer[player]
 	return if session ~= nil then session.ArenaId else nil
 end
 
-function MatchCoordinator:IsInstanceInPlayerArena(player: Player, instance: Instance): boolean
+function MatchCoordinator.IsInstanceInPlayerArena(
+	self: MatchCoordinator,
+	player: Player,
+	instance: Instance
+): boolean
 	local arenaId = self:_getArenaId(player)
 	return arenaId ~= nil and self._arenaRegistry:Contains(arenaId, instance)
 end
 
-function MatchCoordinator:FinishForKnockout(loser: Player)
-	local winner = self:GetOpponents(loser)[1]
+function MatchCoordinator.FinishForKnockout(self: MatchCoordinator, loser: Player)
+	local winner: Player? = self:GetOpponents(loser)[1]
 	if winner ~= nil then
 		self:FinishMatch(winner, loser, "Knockout")
 	end
 end
 
-function MatchCoordinator:_cancelStartingSession(session: MatchSession, departingPlayer: Player?)
+function MatchCoordinator._cancelStartingSession(
+	self: MatchCoordinator,
+	session: MatchSession,
+	departingPlayer: Player?
+)
 	local result: MatchResult = {
 		WinnerUserId = nil,
 		LoserUserId = nil,
@@ -461,19 +479,22 @@ function MatchCoordinator:_cancelStartingSession(session: MatchSession, departin
 
 	local remaining: { Player } = {}
 	for _, player in session.Players do
-		if player ~= departingPlayer and player.Parent == Players then
+		if (departingPlayer == nil or player ~= departingPlayer) and player.Parent == Players then
 			self:_notifyMatchChanged(player, {
 				Id = session.Id,
 				State = "Complete",
 				Result = result,
 			})
-			if departingPlayer ~= nil then
+			if departingPlayer then
 				table.insert(remaining, player)
 			end
 		end
 	end
 
-	local closed, closeError = pcall(self._onSessionClosed, table.clone(session.Players), result)
+	local closed, closeError = pcall(function()
+		self._onSessionClosed(table.clone(session.Players), result)
+		return true
+	end)
 	if not closed then
 		warn(`Match close callback failed for match {session.Id}: {tostring(closeError)}`)
 	end
@@ -483,7 +504,8 @@ function MatchCoordinator:_cancelStartingSession(session: MatchSession, departin
 	end
 end
 
-function MatchCoordinator:_finishSession(
+function MatchCoordinator._finishSession(
+	self: MatchCoordinator,
 	session: MatchSession,
 	winner: Player?,
 	loser: Player?,
@@ -526,8 +548,9 @@ function MatchCoordinator:_finishSession(
 		and loser ~= nil
 		and RewardPolicy.IsEligible(reason, result.DurationSeconds)
 	then
+		local finishedAt = os.time()
 		task.defer(function()
-			self:_settleRewards(settlement, winner, loser, session.Id)
+			self:_settleRewards(settlement, winner, loser, session.Id, finishedAt)
 		end)
 	else
 		self:_completeSettlement(settlement)
@@ -545,14 +568,18 @@ function MatchCoordinator:_finishSession(
 			Result = result,
 		})
 	end
-	local closed, closeError = pcall(self._onSessionClosed, table.clone(session.Players), result)
+	local closed, closeError = pcall(function()
+		self._onSessionClosed(table.clone(session.Players), result)
+		return true
+	end)
 	if not closed then
 		warn(`Match close callback failed for match {session.Id}: {tostring(closeError)}`)
 	end
 	return true
 end
 
-function MatchCoordinator:FinishMatch(
+function MatchCoordinator.FinishMatch(
+	self: MatchCoordinator,
 	winner: Player?,
 	loser: Player?,
 	reason: MatchEndReason
@@ -562,7 +589,7 @@ function MatchCoordinator:FinishMatch(
 		return false
 	end
 
-	local session = self._matchesByPlayer[anchor]
+	local session: MatchSession? = self._matchesByPlayer[anchor]
 	if session == nil then
 		return false
 	end
@@ -570,12 +597,12 @@ function MatchCoordinator:FinishMatch(
 	return self:_finishSession(session, winner, loser, reason)
 end
 
-function MatchCoordinator:_cleanupSession(session: MatchSession)
+function MatchCoordinator._cleanupSession(self: MatchCoordinator, session: MatchSession)
 	if self._sessions[session.Id] ~= session then
 		return
 	end
 
-	local placement = self._placements[session.Id]
+	local placement: MatchPlacement? = self._placements[session.Id]
 	if placement ~= nil then
 		placement:Restore()
 		self._placements[session.Id] = nil
@@ -588,7 +615,7 @@ function MatchCoordinator:_cleanupSession(session: MatchSession)
 		end
 	end
 	session:Destroy()
-	local settlement = self._settlementsByPlayer[session.Players[1]]
+	local settlement: Settlement? = self._settlementsByPlayer[session.Players[1]]
 	if settlement ~= nil then
 		settlement.Cleaned = true
 		self:_releaseSettlement(settlement)
@@ -596,8 +623,8 @@ function MatchCoordinator:_cleanupSession(session: MatchSession)
 	self:_matchmake()
 end
 
-function MatchCoordinator:VoteToEnd(player: Player): boolean
-	local session = self._matchesByPlayer[player]
+function MatchCoordinator.VoteToEnd(self: MatchCoordinator, player: Player): boolean
+	local session: MatchSession? = self._matchesByPlayer[player]
 	if session == nil then
 		return false
 	end
@@ -608,14 +635,14 @@ function MatchCoordinator:VoteToEnd(player: Player): boolean
 	return true
 end
 
-function MatchCoordinator:HandlePlayerRemoving(player: Player)
+function MatchCoordinator.HandlePlayerRemoving(self: MatchCoordinator, player: Player)
 	self:LeaveQueue(player)
 
-	local session = self._matchesByPlayer[player]
+	local session: MatchSession? = self._matchesByPlayer[player]
 	if session ~= nil then
 		if session.State == "Active" then
 			local opponent = self:GetOpponents(player)[1]
-			if opponent ~= nil then
+			if opponent then
 				self:FinishMatch(opponent, player, "Forfeit")
 			else
 				self:_cleanupSession(session)
@@ -625,13 +652,13 @@ function MatchCoordinator:HandlePlayerRemoving(player: Player)
 		end
 	end
 
-	local settlement = self._settlementsByPlayer[player]
+	local settlement: Settlement? = self._settlementsByPlayer[player]
 	if settlement ~= nil and not settlement.Complete then
 		self:_waitForSettlement(settlement, os.clock() + MatchConfig.SettlementWaitSeconds)
 	end
 end
 
-function MatchCoordinator:Destroy()
+function MatchCoordinator.Destroy(self: MatchCoordinator)
 	local pending: { Settlement } = {}
 	for _, settlement in self._settlementsByPlayer do
 		if not settlement.Complete and table.find(pending, settlement) == nil then
@@ -642,8 +669,9 @@ function MatchCoordinator:Destroy()
 	for _, settlement in pending do
 		self:_waitForSettlement(settlement, deadline)
 	end
+	self._destroyed = true
 	for _, session in self._sessions do
-		local placement = self._placements[session.Id]
+		local placement: MatchPlacement? = self._placements[session.Id]
 		if placement ~= nil then
 			placement:Restore()
 		end

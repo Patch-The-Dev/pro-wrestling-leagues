@@ -1,6 +1,6 @@
 --!strict
 
-local CURRENT_SCHEMA_VERSION = 4
+local CURRENT_SCHEMA_VERSION = 5
 
 type Dictionary = { [string]: unknown }
 type Migration = (data: Dictionary) -> ()
@@ -95,6 +95,9 @@ local MIGRATIONS: { [number]: Migration } = {
 	[1] = migrateLegacyRoot,
 	[2] = migrateFinisherSlot,
 	[3] = addMatchSettlementIds,
+	[4] = function(data)
+		ensureDictionary(data, "MatchRewardSequences")
+	end,
 }
 
 function ProfileMigrations.Apply(data: Dictionary): number
