@@ -124,6 +124,8 @@ On Windows with Roblox Studio installed and signed in:
 
 The tests use isolated fixtures and mock data stores. They do not publish a place or change live player data. The production project excludes test scripts and TestEZ. Each runtime report records the commit, whether the working tree was dirty, completion time, suite totals, and pass/fail status. Missing results, skipped tests, and timeouts fail the command.
 
+The [recorded local Studio run](docs/validation.json) passed **85 unit checks**, the **server bootstrap**, and **17 multiplayer checks** from a clean source commit. The report identifies that commit and its completion time. The Studio workflow generates a fresh report for each automated run.
+
 The [Studio runtime workflow](.github/workflows/studio.yml) runs these same suites after successful source checks on trusted `main` pushes, once a dedicated Windows runner is enabled. It does not execute pull requests or forks on the signed-in machine. [Studio CI setup](docs/STUDIO_CI.md) covers installation and the opt-in repository variable. A skipped workflow is not a runtime pass.
 
 The source tree is the reviewable application layer; the [live Roblox game](https://www.roblox.com/games/125171795730320/PRO-WRESTLING-LEAGUES) is the playable project. Studio-authored arenas, UI, animation, sound, and cosmetic assets connect through the documented runtime contract.

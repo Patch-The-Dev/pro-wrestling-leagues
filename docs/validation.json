@@ -1,0 +1,24 @@
+{
+  "commit": "23ec6307a678391762c6d7a2c8c73b5574288c5e",
+  "workingTreeDirty": false,
+  "finishedAtUtc": "2026-10-01T16:14:19.0909195Z",
+  "status": "passed",
+  "suites": [
+    {
+      "suite": "Unit",
+      "status": "passed",
+      "checks": 85
+    },
+    {
+      "suite": "Bootstrap",
+      "status": "passed",
+      "checks": 1
+    },
+    {
+      "suite": "Integration",
+      "status": "passed",
+      "checks": 17
+    }
+  ],
+  "error": null
+}
